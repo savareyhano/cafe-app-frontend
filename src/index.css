@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-forest: #1c2e24;
+  --color-forest-light: #2c4437;
+  --color-forest-dark: #0f1c16;
+  --color-earth: #2c2520;
+  --color-earth-dark: #1e1916;
+  --color-wood: #8e6f5e;
+  --color-wood-dark: #5e463a;
+  --color-beige: #f4ede2;
+  --color-beige-dark: #e8ddce;
+  --color-moss: #4a5d4e;
+  --color-fog: #dce1dd;
+}
+
+/* Custom scrollbar and animations */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-forest-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-wood);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-beige-dark);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(28, 46, 36, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(244, 237, 226, 0.1);
+}
+
+.glass-panel-light {
+  background: rgba(244, 237, 226, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(28, 46, 36, 0.1);
+}
+
+.text-gradient-wood {
+  background: linear-gradient(135deg, #dfc6b3 0%, #8e6f5e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+

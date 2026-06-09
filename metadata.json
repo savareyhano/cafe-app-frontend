@@ -1,0 +1,6 @@
+{
+  "name": "Mirasa Coffee & Space",
+  "description": "Premium cinematic nature-inspired coffee shop and creative sanctuary in the hills of Indonesia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
