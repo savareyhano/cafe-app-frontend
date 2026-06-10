@@ -43,11 +43,12 @@ export default function App() {
         </Routes>
       </BrowserRouter>
 
-      <Toaster
-        position="top-center"
-        duration={3000}
+      <Toaster 
+        position="top-right" 
+        duration={3000} 
         richColors
         expand={true}
+        closeButton
       />
     </QueryClientProvider>
   );

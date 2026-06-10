@@ -15,6 +15,7 @@ export default function MenuItemsPage() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -73,9 +74,7 @@ export default function MenuItemsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      deleteMutation.mutate(id);
-    }
+    setItemToDelete(id);
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -328,6 +327,45 @@ export default function MenuItemsPage() {
               </button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <DialogContent className="bg-earth-dark border border-beige/10 text-beige sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl font-light text-white">
+              Confirm Delete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm font-sans text-beige/80">
+              Are you sure you want to delete this menu item? This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter className="mt-2">
+            <button 
+              type="button" 
+              onClick={() => setItemToDelete(null)}
+              className="px-4 py-2 rounded-lg border border-beige/10 hover:bg-forest text-xs font-mono uppercase tracking-widest transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              onClick={() => {
+                if (itemToDelete) {
+                  deleteMutation.mutate(itemToDelete, {
+                    onSuccess: () => setItemToDelete(null)
+                  });
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="px-4 py-2 bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-900/50 rounded-lg text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
+            >
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
