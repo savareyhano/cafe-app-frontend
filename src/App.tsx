@@ -43,12 +43,13 @@ export default function App() {
         </Routes>
       </BrowserRouter>
 
-      <Toaster 
-        position="top-right" 
-        duration={3000} 
-        richColors
+      <Toaster
+        position="top-center"
+        duration={3000}
+        toastOptions={{
+          className: 'bg-forest text-beige border-wood font-mono text-xs tracking-widest',
+        }}
         expand={true}
-        closeButton
       />
     </QueryClientProvider>
   );
