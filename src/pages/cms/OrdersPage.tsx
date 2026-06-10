@@ -93,8 +93,11 @@ export default function OrdersPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-beige/10">
-                <th className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">
-                  Order ID / Time
+                <th 
+                  className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
+                  onClick={() => handleSort('createdAt')}
+                >
+                  <div className="flex items-center gap-1">Time <ArrowUpDown size={12} /></div>
                 </th>
                 <th
                   className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
@@ -115,6 +118,12 @@ export default function OrdersPage() {
                 <th className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">
                   Items
                 </th>
+                <th 
+                  className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
+                  onClick={() => handleSort('total')}
+                >
+                  <div className="flex items-center gap-1">Total <ArrowUpDown size={12} /></div>
+                </th>
                 <th
                   className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
                   onClick={() => handleSort('status')}
@@ -129,7 +138,7 @@ export default function OrdersPage() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="p-8 text-center text-beige/50 font-mono text-sm"
                   >
                     Loading orders...
@@ -138,7 +147,7 @@ export default function OrdersPage() {
               ) : data?.data?.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="p-8 text-center text-beige/50 font-mono text-sm"
                   >
                     No orders found.
@@ -151,14 +160,8 @@ export default function OrdersPage() {
                     className="border-b border-beige/5 hover:bg-forest/30 transition-colors align-top"
                   >
                     <td className="p-3">
-                      <p
-                        className="font-mono text-xs text-beige/60"
-                        title={order.id}
-                      >
-                        {order.id.slice(0, 8)}...
-                      </p>
-                      <p className="text-[10px] font-mono text-[#dfc6b3] mt-1">
-                        {new Date(order.createdAt).toLocaleTimeString()}
+                      <p className="font-mono text-xs text-beige/80">
+                        {new Date(order.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
                     </td>
                     <td className="p-3">
@@ -170,9 +173,9 @@ export default function OrdersPage() {
                       </p>
                     </td>
                     <td className="p-3">
-                      <div className="w-8 h-8 rounded-full bg-forest border border-beige/10 flex items-center justify-center font-mono text-xs text-wood">
+                      <span className="font-mono text-sm text-wood">
                         {order.tableNumber}
-                      </div>
+                      </span>
                     </td>
                     <td className="p-3">
                       <div className="space-y-1">
@@ -183,7 +186,8 @@ export default function OrdersPage() {
                             </span>{' '}
                             <span className="text-beige/80">
                               {item.menuItems.name}
-                            </span>
+                            </span>{' '}
+                            <span className="text-beige/50 font-mono">(@ Rp {item.priceAtOrder.toLocaleString()})</span>
                             {item.note && (
                               <p className="text-[10px] text-beige/40 italic ml-4">
                                 Note: {item.note}
@@ -192,6 +196,9 @@ export default function OrdersPage() {
                           </div>
                         ))}
                       </div>
+                    </td>
+                    <td className="p-3 font-mono text-wood text-sm">
+                      Rp {order.total?.toLocaleString() || 0}
                     </td>
                     <td className="p-3">
                       <DropdownMenu>
