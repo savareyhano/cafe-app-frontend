@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDeleteMenuItemMutation, useAddMenuItemMutation, useUpdateMenuItemMutation } from '../../lib/mutations';
 import { useMenuItemsQuery as useItemsQuery } from '../../lib/queries';
-import { Plus, Search, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -29,6 +29,14 @@ export default function MenuItemsPage() {
   const deleteMutation = useDeleteMenuItemMutation();
   const addMutation = useAddMenuItemMutation();
   const updateMutation = useUpdateMenuItemMutation();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -260,14 +268,17 @@ export default function MenuItemsPage() {
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Type</label>
-              <select 
-                value={formData.type}
-                onChange={(e) => setFormData({...formData, type: e.target.value})}
-                className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood"
-              >
-                <option value="food">Food</option>
-                <option value="drink">Drink</option>
-              </select>
+              <div className="relative">
+                <select 
+                  value={formData.type}
+                  onChange={(e) => setFormData({...formData, type: e.target.value})}
+                  className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 pr-10 text-sm focus:outline-none focus:border-wood appearance-none"
+                >
+                  <option value="food">Food</option>
+                  <option value="drink">Drink</option>
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-beige/50 pointer-events-none" />
+              </div>
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Price (Rp)</label>

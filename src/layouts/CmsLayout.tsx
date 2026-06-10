@@ -66,8 +66,8 @@ export default function CmsLayout() {
               className={({ isActive }) => `
                 flex items-center gap-3 px-4 py-3 rounded-xl font-mono text-xs uppercase tracking-widest transition-all
                 ${isActive 
-                  ? 'bg-wood text-white shadow-md' 
-                  : 'text-beige/70 hover:bg-forest hover:text-beige'
+                  ? 'bg-wood text-white shadow-md opacity-100' 
+                  : 'text-beige opacity-60 hover:bg-forest hover:opacity-100'
                 }
               `}
             >

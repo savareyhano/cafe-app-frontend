@@ -48,7 +48,6 @@ export default function LoginPage() {
       
       {/* Ambient backgrounds to match landing page */}
       <div className="absolute inset-0 bg-gradient-to-t from-earth-dark via-earth-dark/40 to-forest-dark/60 z-0" />
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80&w=1600')] bg-cover bg-center opacity-10 z-0" />
 
       <div className="w-full max-w-md bg-forest-dark/80 backdrop-blur-md border border-beige/10 rounded-3xl p-8 md:p-10 relative z-10 shadow-2xl">
         <div className="flex flex-col items-center mb-10">

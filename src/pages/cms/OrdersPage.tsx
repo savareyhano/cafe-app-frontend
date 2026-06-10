@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOrdersQuery } from '../../lib/queries';
 import { useUpdateOrderMutation } from '../../lib/mutations';
-import { Search, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Search, ArrowUpDown, ChevronDown, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 
 export default function OrdersPage() {
@@ -12,8 +12,16 @@ export default function OrdersPage() {
   const [sortOrder, setSortOrder] = useState('desc');
 
   // Polling every 5 seconds is configured in useOrdersQuery
-  const { data, isLoading } = useOrdersQuery(page, 10, search, sortBy, sortOrder, 5000);
+  const { data, isLoading, isFetching } = useOrdersQuery(page, 10, search, sortBy, sortOrder, 5000);
   const updateStatusMutation = useUpdateOrderMutation();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const handleSort = (field: string) => {
     if (sortBy === field) {
@@ -45,12 +53,11 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="font-serif text-3xl text-white font-light">Live Orders</h1>
+          <h1 className="font-serif text-3xl text-white font-light flex items-center gap-3">
+            Orders
+            {isFetching && !isLoading && <Loader2 size={18} className="animate-spin text-wood" />}
+          </h1>
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#dfc6b3]">Real-time queue management</span>
-        </div>
-        <div className="flex items-center gap-2 px-3 py-1 bg-forest/50 border border-beige/10 rounded-full">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[10px] font-mono tracking-widest uppercase text-beige/70">Live Sync</span>
         </div>
       </div>
 
