@@ -226,7 +226,7 @@ export default function MenuItemsPage() {
         </div>
 
         {/* Pagination */}
-        {data?.pagination && (
+        {data?.data?.length > 0 && data?.pagination && (
           <div className="mt-6 flex items-center justify-between">
             <span className="text-xs font-mono text-beige/50">
               Page {data.pagination.currentPage} of {data.pagination.totalPages}
