@@ -51,10 +51,10 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md bg-forest-dark/80 backdrop-blur-md border border-beige/10 rounded-3xl p-8 md:p-10 relative z-10 shadow-2xl">
         <div className="flex flex-col items-center mb-10">
-          <div className="h-14 w-14 rounded-2xl bg-gradient-to-tr from-forest-light to-wood flex items-center justify-center border border-beige/25 mb-4 shadow-lg">
-            <span className="font-serif text-2xl font-bold text-beige tracking-wide">M</span>
+          <div className="h-14 w-14 rounded-2xl overflow-hidden border border-beige/25 mb-4 shadow-lg">
+            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
-          <h1 className="font-serif text-3xl text-white font-light text-center">Mirasa Sanctuary</h1>
+          <h1 className="font-serif text-3xl text-white font-light text-center">Mirasa Coffee</h1>
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#dfc6b3] mt-2 block opacity-80">CMS Portal Access</span>
         </div>
 
@@ -111,7 +111,7 @@ export default function LoginPage() {
       
       <div className="mt-8 text-center relative z-10">
         <span className="font-mono text-[10px] tracking-widest text-beige/40 uppercase">
-          &copy; {new Date().getFullYear()} Mirasa Sanctuary. Authorized Access Only.
+          &copy; {new Date().getFullYear()} Mirasa Coffee. Authorized Access Only.
         </span>
       </div>
     </div>

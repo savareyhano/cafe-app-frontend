@@ -27,8 +27,8 @@ export default function CmsLayout() {
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 bg-forest-dark border-b border-beige/10 sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-forest-light to-wood flex items-center justify-center border border-beige/25">
-            <span className="font-serif text-sm font-bold text-beige tracking-wide">M</span>
+          <div className="h-8 w-8 rounded-lg overflow-hidden border border-beige/25">
+            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-serif text-sm tracking-widest text-beige uppercase">Mirasa CMS</span>
         </div>
@@ -42,16 +42,16 @@ export default function CmsLayout() {
 
       {/* Sidebar Navigation */}
       <aside className={`
-        fixed md:static inset-y-0 left-0 z-40 w-64 bg-forest-dark border-r border-beige/10 transform transition-transform duration-300 ease-in-out flex flex-col
+        fixed md:static inset-y-0 left-0 z-40 w-64 bg-forest-dark border-r border-beige/10 transform transition-transform duration-300 ease-in-out flex flex-col pt-16 md:pt-0
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Sidebar Header (Desktop) */}
         <div className="hidden md:flex items-center gap-3 p-6 border-b border-beige/10">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-forest-light to-wood flex items-center justify-center border border-beige/25">
-            <span className="font-serif text-lg font-bold text-beige tracking-wide">M</span>
+          <div className="h-10 w-10 rounded-xl overflow-hidden border border-beige/25">
+            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
           <div>
-            <span className="font-serif text-base tracking-widest text-beige uppercase block">Mirasa</span>
+            <span className="font-serif text-base tracking-widest text-beige uppercase block">Mirasa Coffee</span>
             <span className="font-mono text-[9px] uppercase tracking-widest text-[#dfc6b3] block opacity-80">CMS Portal</span>
           </div>
         </div>
@@ -104,7 +104,7 @@ export default function CmsLayout() {
         {/* Copyright Footer */}
         <footer className="py-4 px-8 border-t border-beige/5 text-center md:text-left bg-earth-dark mt-auto">
           <span className="font-mono text-[10px] tracking-widest text-beige/40 uppercase">
-            &copy; {new Date().getFullYear()} Mirasa Sanctuary. All rights reserved.
+            &copy; {new Date().getFullYear()} Mirasa Coffee. All rights reserved.
           </span>
         </footer>
       </main>
