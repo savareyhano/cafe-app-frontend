@@ -178,7 +178,11 @@ export default function MenuItemsPage() {
                     <td className="p-3">
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-forest flex items-center justify-center">
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                          <img 
+                            src={`${item.imageUrl}${item.imageUrl.includes('?') ? '&' : '?'}v=${new Date(item.updatedAt).getTime()}`} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover" 
+                          />
                         ) : (
                           <span className="text-beige/20 font-mono text-xs">No img</span>
                         )}
