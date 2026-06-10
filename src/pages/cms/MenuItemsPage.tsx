@@ -11,11 +11,11 @@ export default function MenuItemsPage() {
   const [searchInput, setSearchInput] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
-  
+
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -80,7 +80,7 @@ export default function MenuItemsPage() {
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.price || !formData.type) {
       toast.error('Please fill required fields (Name, Type, Price)');
       return;
@@ -90,7 +90,7 @@ export default function MenuItemsPage() {
     submitData.append('name', formData.name);
     submitData.append('type', formData.type);
     submitData.append('price', formData.price);
-    
+
     // Description can be empty
     submitData.append('description', formData.description);
 
@@ -116,7 +116,7 @@ export default function MenuItemsPage() {
           <h1 className="font-serif text-3xl text-white font-light">Menu Items</h1>
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#dfc6b3]">Manage your catalog</span>
         </div>
-        <button 
+        <button
           onClick={openAddModal}
           className="flex items-center gap-2 bg-wood hover:bg-wood-dark text-white px-4 py-2 rounded-xl text-xs font-mono font-medium tracking-widest uppercase transition-all shadow-md"
         >
@@ -147,14 +147,14 @@ export default function MenuItemsPage() {
             <thead>
               <tr className="border-b border-beige/10">
                 <th className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Image</th>
-                <th 
+                <th
                   className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
                   onClick={() => handleSort('name')}
                 >
                   <div className="flex items-center gap-1">Name <ArrowUpDown size={12} /></div>
                 </th>
                 <th className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Type</th>
-                <th 
+                <th
                   className="p-3 text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase cursor-pointer hover:text-wood"
                   onClick={() => handleSort('price')}
                 >
@@ -198,14 +198,14 @@ export default function MenuItemsPage() {
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => openEditModal(item)}
                           className="p-1.5 text-beige/50 hover:text-wood hover:bg-wood/10 rounded transition-colors"
                           title="Edit"
                         >
                           <Pencil size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(item.id)}
                           className="p-1.5 text-beige/50 hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
                           title="Delete"
@@ -258,8 +258,8 @@ export default function MenuItemsPage() {
           <form onSubmit={handleFormSubmit} className="space-y-4 py-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Name</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({...formData, name: e.target.value})}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood"
@@ -269,7 +269,7 @@ export default function MenuItemsPage() {
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Type</label>
               <div className="relative">
-                <select 
+                <select
                   value={formData.type}
                   onChange={(e) => setFormData({...formData, type: e.target.value})}
                   className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 pr-10 text-sm focus:outline-none focus:border-wood appearance-none"
@@ -282,8 +282,8 @@ export default function MenuItemsPage() {
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Price (Rp)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 value={formData.price}
                 onChange={(e) => setFormData({...formData, price: e.target.value})}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood"
@@ -292,32 +292,31 @@ export default function MenuItemsPage() {
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Description</label>
-              <textarea 
+              <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood min-h-[80px]"
-                placeholder="Leave empty to clear description"
               />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Image</label>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 accept="image/jpeg, image/png, image/webp"
                 onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2 text-sm text-beige/70 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-mono file:uppercase file:tracking-widest file:bg-wood file:text-white hover:file:bg-wood-dark cursor-pointer"
               />
             </div>
             <DialogFooter className="mt-6">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 rounded-lg border border-beige/10 hover:bg-forest text-xs font-mono uppercase tracking-widest transition-colors"
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={addMutation.isPending || updateMutation.isPending}
                 className="px-4 py-2 bg-wood hover:bg-wood-dark text-white rounded-lg text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
               >
