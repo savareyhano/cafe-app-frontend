@@ -25,6 +25,8 @@ interface CartState {
   setTableNumber: (table: string) => void;
   totalItems: () => number;
   subtotal: () => number;
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -34,6 +36,9 @@ export const useCartStore = create<CartState>()(
       customerName: '',
       customerPhone: '',
       tableNumber: '',
+      isCartOpen: false,
+
+      setIsCartOpen: (open) => set({ isCartOpen: open }),
 
   addItem: (item) => {
     set((state) => {
