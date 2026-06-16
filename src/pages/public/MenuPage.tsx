@@ -204,13 +204,13 @@ export default function MenuPage() {
 
       {/* Cart Sidebar / Drawer */}
       <div className={`
-        fixed inset-y-0 right-0 lg:sticky lg:top-[73px] z-40 w-full md:w-[400px] lg:w-[350px] xl:w-[400px] bg-forest-dark lg:bg-transparent lg:border-l border-beige/10 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col h-full lg:h-[calc(100vh-73px)] shadow-2xl lg:shadow-none
+        fixed inset-y-0 right-0 lg:sticky lg:top-[73px] z-[60] lg:z-40 w-full md:w-[400px] lg:w-[350px] xl:w-[400px] bg-forest-dark lg:bg-transparent lg:border-l border-beige/10 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col h-full lg:h-[calc(100vh-73px)] shadow-2xl lg:shadow-none
         ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}
       `}>
         {/* Mobile Close Button */}
         <div className="flex lg:hidden items-center justify-between p-4 border-b border-beige/10 bg-forest-dark sticky top-0 z-10">
           <h2 className="font-serif text-xl text-white">Order Summary</h2>
-          <button onClick={() => setIsCartOpen(false)} className="p-2 text-beige/50 hover:text-white bg-earth-dark rounded-lg">
+          <button type="button" onClick={() => setIsCartOpen(false)} className="p-2 text-beige/50 hover:text-white bg-earth-dark rounded-lg">
             <X size={20} />
           </button>
         </div>
