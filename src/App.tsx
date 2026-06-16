@@ -3,11 +3,13 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { Toaster } from './components/ui/sonner';
 
 // Pages
-import LandingPageReference from './LandingPageReference';
 import CmsLayout from './layouts/CmsLayout';
+import PublicLayout from './layouts/PublicLayout';
 import LoginPage from './pages/cms/LoginPage';
 import MenuItemsPage from './pages/cms/MenuItemsPage';
 import OrdersPage from './pages/cms/OrdersPage';
+import MenuPage from './pages/public/MenuPage';
+import OrderTrackingPage from './pages/public/OrderTrackingPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const queryClient = new QueryClient({
@@ -24,8 +26,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* Keep the landing page as a reference for styling */}
-          <Route path="/landing-reference" element={<LandingPageReference />} />
+          {/* Public Routes */}
+          <Route path="/" element={<PublicLayout />}>
+            <Route index element={<MenuPage />} />
+            <Route path="track" element={<OrderTrackingPage />} />
+          </Route>
 
           {/* CMS Routes */}
           <Route path="/cms/login" element={<LoginPage />} />
@@ -39,7 +44,7 @@ export default function App() {
           </Route>
 
           {/* Fallback redirect */}
-          <Route path="*" element={<Navigate to="/cms/menu" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
 
