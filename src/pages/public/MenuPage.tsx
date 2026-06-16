@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../../components/ui/dialog';
 
 const checkoutSchema = z.object({
   customerName: z.string().min(1, 'Name is required'),
@@ -75,7 +75,7 @@ export default function MenuPage() {
     const payload = {
       customerName: formData.customerName,
       customerPhoneNumber: formData.customerPhone,
-      tableNumber: formData.tableNumber,
+      tableNumber: parseInt(formData.tableNumber, 10),
       orderItems: cart.items.map((i) => ({
         menuItemId: i.menuItemId,
         quantity: i.quantity,
@@ -330,9 +330,12 @@ export default function MenuPage() {
 
       {/* Multi-Order Confirmation Modal */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-        <DialogContent className="bg-earth-dark border border-beige/10 text-beige sm:max-w-md">
+        <DialogContent className="bg-earth-dark border border-beige/10 text-beige sm:max-w-md" aria-describedby="confirm-dialog-description">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl font-light text-white">Active Orders Found</DialogTitle>
+            <DialogDescription id="confirm-dialog-description" className="sr-only">
+              Confirmation modal for placing another order when active orders exist.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="font-sans text-sm text-beige/80">

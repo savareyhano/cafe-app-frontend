@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface CartItem {
   menuItemId: string;
@@ -26,11 +27,13 @@ interface CartState {
   subtotal: () => number;
 }
 
-export const useCartStore = create<CartState>((set, get) => ({
-  items: [],
-  customerName: '',
-  customerPhone: '',
-  tableNumber: '',
+export const useCartStore = create<CartState>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      customerName: '',
+      customerPhone: '',
+      tableNumber: '',
 
   addItem: (item) => {
     set((state) => {
@@ -81,4 +84,4 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
   subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-}));
+}), { name: 'cart-storage' }));
