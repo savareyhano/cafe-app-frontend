@@ -363,7 +363,7 @@ export default function MenuPage() {
       </Dialog>
 
       {/* Mobile Cart Floating Button */}
-      {cart.totalItems() > 0 && (
+      {!isCartOpen && cart.totalItems() > 0 && (
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
