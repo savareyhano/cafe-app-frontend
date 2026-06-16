@@ -3,7 +3,36 @@ import { useDeleteMenuItemMutation, useAddMenuItemMutation, useUpdateMenuItemMut
 import { useMenuItemsQuery as useItemsQuery } from '../../lib/queries';
 import { Plus, Search, Pencil, Trash2, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { toast } from 'sonner';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+const menuItemSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  type: z.enum(['food', 'drink']),
+  price: z.coerce.number().min(0, 'Price must be a positive number'),
+  description: z.string().optional(),
+  image: z
+    .any()
+    .optional()
+    .refine((files) => {
+      if (!files || files.length === 0) return true;
+      return files[0]?.size <= MAX_FILE_SIZE;
+    }, 'Max image size is 10MB.')
+    .refine(
+      (files) => {
+        if (!files || files.length === 0) return true;
+        return ACCEPTED_IMAGE_TYPES.includes(files[0]?.type);
+      },
+      'Only .jpg, .png, and .webp formats are supported.'
+    )
+});
+
+type MenuItemFormValues = z.infer<typeof menuItemSchema>;
 
 export default function MenuItemsPage() {
   const [page, setPage] = useState(1);
@@ -18,13 +47,20 @@ export default function MenuItemsPage() {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'food',
-    description: '',
-    price: '',
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<MenuItemFormValues>({
+    resolver: zodResolver(menuItemSchema) as any,
+    defaultValues: {
+      name: '',
+      type: 'food',
+      description: '',
+      price: 0 as any,
+    }
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const { data, isLoading } = useItemsQuery(page, 10, search, sortBy, sortOrder);
   const deleteMutation = useDeleteMenuItemMutation();
@@ -56,20 +92,18 @@ export default function MenuItemsPage() {
 
   const openAddModal = () => {
     setEditingItem(null);
-    setFormData({ name: '', type: 'food', description: '', price: '' });
-    setImageFile(null);
+    reset({ name: '', type: 'food', description: '', price: '' as any });
     setIsModalOpen(true);
   };
 
   const openEditModal = (item: any) => {
     setEditingItem(item);
-    setFormData({
+    reset({
       name: item.name,
-      type: item.type,
+      type: item.type as 'food' | 'drink',
       description: item.description || '',
-      price: item.price.toString(),
+      price: item.price,
     });
-    setImageFile(null);
     setIsModalOpen(true);
   };
 
@@ -77,33 +111,33 @@ export default function MenuItemsPage() {
     setItemToDelete(id);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = (data: MenuItemFormValues) => {
+    const submitData = new FormData();
+    submitData.append('name', data.name);
+    submitData.append('type', data.type);
+    submitData.append('price', data.price.toString());
 
-    if (!formData.name || !formData.price || !formData.type) {
-      toast.error('Please fill required fields (Name, Type, Price)');
-      return;
+    if (data.description) {
+      submitData.append('description', data.description);
     }
 
-    const submitData = new FormData();
-    submitData.append('name', formData.name);
-    submitData.append('type', formData.type);
-    submitData.append('price', formData.price);
-
-    // Description can be empty
-    submitData.append('description', formData.description);
-
-    if (imageFile) {
-      submitData.append('image', imageFile);
+    if (data.image && data.image.length > 0) {
+      submitData.append('image', data.image[0]);
     }
 
     if (editingItem) {
       updateMutation.mutate({ id: editingItem.id, formData: submitData }, {
-        onSuccess: () => setIsModalOpen(false)
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
       });
     } else {
       addMutation.mutate(submitData, {
-        onSuccess: () => setIsModalOpen(false)
+        onSuccess: () => {
+          setIsModalOpen(false);
+          reset();
+        }
       });
     }
   };
@@ -258,23 +292,21 @@ export default function MenuItemsPage() {
               {editingItem ? 'Edit Menu Item' : 'Add Menu Item'}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleFormSubmit} className="space-y-4 py-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Name</label>
               <input
                 type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                {...register('name')}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood"
-                required
               />
+              {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Type</label>
               <div className="relative">
                 <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value})}
+                  {...register('type')}
                   className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 pr-10 text-sm focus:outline-none focus:border-wood appearance-none"
                 >
                   <option value="food">Food</option>
@@ -282,33 +314,37 @@ export default function MenuItemsPage() {
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-beige/50 pointer-events-none" />
               </div>
+              {errors.type && <p className="text-red-400 text-xs mt-1">{errors.type.message}</p>}
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Price (Rp)</label>
               <input
                 type="number"
-                value={formData.price}
-                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                {...register('price')}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood"
-                required
               />
+              {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price.message}</p>}
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Description</label>
+              <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Description <span className="text-beige/40 normal-case tracking-normal">(Optional)</span></label>
               <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                {...register('description')}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2.5 text-sm focus:outline-none focus:border-wood min-h-[80px]"
               />
+              {errors.description && <p className="text-red-400 text-xs mt-1">{errors.description.message}</p>}
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase">Image</label>
+              <label className="text-[10px] font-mono tracking-widest text-[#dfc6b3] uppercase flex justify-between">
+                <span>Image <span className="text-beige/40 normal-case tracking-normal">(Optional)</span></span>
+                <span className="text-beige/40 normal-case tracking-normal">Max 10MB</span>
+              </label>
               <input
                 type="file"
                 accept="image/jpeg, image/png, image/webp"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                {...register('image')}
                 className="w-full bg-forest-dark border border-beige/10 rounded-lg p-2 text-sm text-beige/70 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-[10px] file:font-mono file:uppercase file:tracking-widest file:bg-wood file:text-white hover:file:bg-wood-dark cursor-pointer"
               />
+              {errors.image && <p className="text-red-400 text-xs mt-1">{errors.image.message as string}</p>}
             </div>
             <DialogFooter className="mt-6">
               <button
