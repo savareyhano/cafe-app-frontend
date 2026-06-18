@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock, User } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useLoginMutation } from '../../lib/mutations';
 import { toast } from 'sonner';
+import logoUrl from '../../assets/images/logo.jpg';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -52,7 +53,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-forest-dark/80 backdrop-blur-md border border-beige/10 rounded-3xl p-8 md:p-10 relative z-10 shadow-2xl">
         <div className="flex flex-col items-center mb-10">
           <div className="h-14 w-14 rounded-2xl overflow-hidden border border-beige/25 mb-4 shadow-lg">
-            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
+            <img src={logoUrl} alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-serif text-3xl text-white font-light text-center">Mirasa Coffee</h1>
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#dfc6b3] mt-2 block opacity-80">CMS Portal Access</span>
