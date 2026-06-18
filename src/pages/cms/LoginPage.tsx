@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { isLoggedIn, login } = useAuthStore();
   const navigate = useNavigate();
-  
+
   const loginMutation = useLoginMutation();
 
   if (isLoggedIn) {
@@ -45,7 +45,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-earth-dark flex flex-col items-center justify-center p-6 selection:bg-wood selection:text-beige relative overflow-hidden">
-      
+
       {/* Ambient backgrounds to match landing page */}
       <div className="absolute inset-0 bg-gradient-to-t from-earth-dark via-earth-dark/40 to-forest-dark/60 z-0" />
 
@@ -108,10 +108,10 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
-      
+
       <div className="mt-8 text-center relative z-10">
         <span className="font-mono text-[10px] tracking-widest text-beige/40 uppercase">
-          &copy; {new Date().getFullYear()} Mirasa Coffee. Authorized Access Only.
+          &copy; {new Date().getFullYear()} Sava Reyhano. Authorized Access Only.
         </span>
       </div>
     </div>
