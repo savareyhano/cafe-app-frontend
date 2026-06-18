@@ -20,9 +20,9 @@ export default function PublicLayout() {
               <span className="font-mono text-[10px] uppercase tracking-widest text-[#dfc6b3] block opacity-80">Order & Enjoy</span>
             </div>
           </Link>
-          
+
           {activeOrderIds.length > 0 && (
-            <Link 
+            <Link
               to="/track"
               className="flex items-center gap-2 bg-wood hover:bg-wood-dark px-4 py-2 rounded-xl text-white font-mono text-xs tracking-widest uppercase transition-colors shadow-md relative overflow-hidden"
             >
@@ -39,11 +39,11 @@ export default function PublicLayout() {
       <main className="flex-1 w-full mx-auto bg-earth relative">
         <Outlet />
       </main>
-      
+
       {/* Footer */}
       <footer className="py-6 border-t border-beige/10 text-center bg-forest-dark/50">
         <span className="font-mono text-[10px] tracking-widest text-beige/40 uppercase">
-          &copy; {new Date().getFullYear()} Mirasa Coffee. All rights reserved.
+          &copy; {new Date().getFullYear()} Sava Reyhano. All rights reserved.
         </span>
       </footer>
     </div>
