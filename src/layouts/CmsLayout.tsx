@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router';
 import { Menu, X, LogOut, Coffee, ShoppingBag, LayoutDashboard } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useLogoutMutation } from '../lib/mutations';
+import logoUrl from '../assets/images/logo.jpg';
 
 export default function CmsLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -28,7 +29,7 @@ export default function CmsLayout() {
       <header className="md:hidden flex items-center justify-between p-4 bg-forest-dark border-b border-beige/10 sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg overflow-hidden border border-beige/25">
-            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
+            <img src={logoUrl} alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
           <span className="font-serif text-sm tracking-widest text-beige uppercase">Mirasa CMS</span>
         </div>
@@ -48,7 +49,7 @@ export default function CmsLayout() {
         {/* Sidebar Header (Desktop) */}
         <div className="hidden md:flex items-center gap-3 p-6 border-b border-beige/10">
           <div className="h-10 w-10 rounded-xl overflow-hidden border border-beige/25">
-            <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
+            <img src={logoUrl} alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
           </div>
           <div>
             <span className="font-serif text-base tracking-widest text-beige uppercase block">Mirasa Coffee</span>

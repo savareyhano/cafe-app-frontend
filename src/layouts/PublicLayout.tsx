@@ -1,6 +1,7 @@
 import { Outlet, Link } from 'react-router';
 import { useOrderStore } from '../store/useOrderStore';
 import { ShoppingBag } from 'lucide-react';
+import logoUrl from '../assets/images/logo.jpg';
 
 export default function PublicLayout() {
   const activeOrderIds = useOrderStore((state) => state.activeOrderIds);
@@ -12,7 +13,7 @@ export default function PublicLayout() {
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl overflow-hidden border border-beige/25">
-              <img src="/src/assets/images/logo.jpg" alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
+              <img src={logoUrl} alt="Mirasa Coffee Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <span className="font-serif text-lg tracking-widest text-white uppercase block leading-tight">Mirasa Coffee</span>
