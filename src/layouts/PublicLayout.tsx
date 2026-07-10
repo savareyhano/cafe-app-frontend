@@ -1,10 +1,13 @@
 import { Outlet, Link } from 'react-router';
 import { useOrderStore } from '../store/useOrderStore';
-import { ShoppingBag } from 'lucide-react';
+import { useCartStore } from '../store/useCartStore';
+import { ShoppingBag, ShoppingCart } from 'lucide-react';
+import CartSidebar from '../components/public/CartSidebar';
 import logoUrl from '../assets/images/logo.jpg';
 
 export default function PublicLayout() {
   const activeOrderIds = useOrderStore((state) => state.activeOrderIds);
+  const cart = useCartStore();
 
   return (
     <div className="min-h-screen bg-earth font-sans text-beige flex flex-col">
@@ -21,17 +24,29 @@ export default function PublicLayout() {
             </div>
           </Link>
 
-          {activeOrderIds.length > 0 && (
-            <Link
-              to="/track"
-              className="flex items-center gap-2 bg-wood hover:bg-wood-dark px-4 py-2 rounded-xl text-white font-mono text-xs tracking-widest uppercase transition-colors shadow-md relative overflow-hidden"
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => cart.setIsOpen(!cart.isOpen)}
+              className="flex items-center gap-2 bg-wood hover:bg-wood-dark px-4 py-2 rounded-xl text-white font-mono text-xs tracking-widest uppercase transition-colors shadow-md cursor-pointer"
             >
-              <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-              <ShoppingBag size={16} className="relative z-10" />
-              <span className="hidden sm:inline relative z-10">Active Orders ({activeOrderIds.length})</span>
-              <span className="sm:hidden relative z-10">({activeOrderIds.length})</span>
-            </Link>
-          )}
+              <ShoppingCart size={16} />
+              <span className="hidden sm:inline">Cart ({cart.totalItems()})</span>
+              <span className="sm:hidden">({cart.totalItems()})</span>
+            </button>
+            
+            {activeOrderIds.length > 0 && (
+              <Link
+                to="/track"
+                className="flex items-center gap-2 bg-wood hover:bg-wood-dark px-4 py-2 rounded-xl text-white font-mono text-xs tracking-widest uppercase transition-colors shadow-md relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                <ShoppingBag size={16} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Active Orders ({activeOrderIds.length})</span>
+                <span className="sm:hidden relative z-10">({activeOrderIds.length})</span>
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
@@ -46,6 +61,9 @@ export default function PublicLayout() {
           &copy; {new Date().getFullYear()} Sava Reyhano. All rights reserved.
         </span>
       </footer>
+
+      {/* Global Cart Sidebar */}
+      <CartSidebar />
     </div>
   );
 }
