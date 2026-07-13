@@ -10,6 +10,7 @@ import MenuItemsPage from './pages/cms/MenuItemsPage';
 import OrdersPage from './pages/cms/OrdersPage';
 import MenuPage from './pages/public/MenuPage';
 import OrderTrackingPage from './pages/public/OrderTrackingPage';
+import PaymentSuccessPage from './pages/public/PaymentSuccessPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const queryClient = new QueryClient({
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/" element={<PublicLayout />}>
             <Route index element={<MenuPage />} />
             <Route path="track" element={<OrderTrackingPage />} />
+            <Route path="payment-success" element={<PaymentSuccessPage />} />
           </Route>
 
           {/* CMS Routes */}

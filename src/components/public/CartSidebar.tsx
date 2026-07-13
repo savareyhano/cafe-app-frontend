@@ -69,7 +69,12 @@ export default function CartSidebar() {
         cart.setIsOpen(false);
         setIsConfirmModalOpen(false);
         setPendingOrderData(null);
-        navigate('/track');
+        
+        if (res.data.paymentUrl) {
+          window.location.href = res.data.paymentUrl;
+        } else {
+          navigate('/track');
+        }
       },
       onError: () => {
         toast.error('Failed to place order. Please try again.');
