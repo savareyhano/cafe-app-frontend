@@ -197,7 +197,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                       <span className="truncate type-label-s">
                         {o.customerName} · Meja {o.tableNumber}
                       </span>
-                      <span className="type-body-xs text-ink-soft tabular-nums">
+                      <span className="truncate type-body-xs text-ink-soft tabular-nums">
                         {o.invoiceNumber} · {formatTime(o.createdAt)}
                       </span>
                     </span>

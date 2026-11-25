@@ -133,7 +133,7 @@ export default function Orders({ loaderData }: Route.ComponentProps) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <ul className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+        <ul className="grid items-start gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           {/* New orders fade in, finished ones fade out, the rest glide to their new places */}
           <AnimatePresence initial={false}>
             {orders.map((o) => (
@@ -197,7 +197,7 @@ function OrderCard({ order: fromServer, onChanged }: { order: Order; onChanged: 
           </h2>
           <p className="type-body-xs text-ink-faint tabular-nums">
             {formatDate(order.createdAt) !== formatDate(new Date().toISOString()) && `${formatDate(order.createdAt)}, `}
-            {formatTime(order.createdAt)} · {order.invoiceNumber}
+            {formatTime(order.createdAt)} · <span className="whitespace-nowrap">{order.invoiceNumber}</span>
             {isNew && <span className="type-label-xs text-info-ink"> · baru</span>}
           </p>
         </div>
@@ -223,11 +223,11 @@ function OrderCard({ order: fromServer, onChanged }: { order: Order; onChanged: 
       </ul>
 
       <div className="flex items-center justify-between gap-3 px-5 pt-3">
-        <span className="flex items-center gap-1.5 type-body-s text-ink-soft">
+        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 type-body-s text-ink-soft">
           {PAYMENT_LABEL[order.paymentMethod]}
           {order.paidAt ? (
             <>
-              <span aria-hidden>·</span>Lunas<span aria-hidden>·</span>
+              <span aria-hidden>·</span>Lunas
               <InvoiceButton order={order} />
             </>
           ) : (
@@ -242,9 +242,9 @@ function OrderCard({ order: fromServer, onChanged }: { order: Order; onChanged: 
         <span className="type-label-l tabular-nums">{rupiah(order.total)}</span>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-2 px-5 pt-4 pb-5">
+      <div className="flex items-center gap-2 px-5 pt-4 pb-5 empty:pt-0">
         {order.status === "pending" && order.paymentMethod === "cash" && (
-          <Button className="flex-1" onClick={() => setConfirm("pay")} disabled={!!busy}>
+          <Button size="sm" className="flex-1" onClick={() => setConfirm("pay")} disabled={!!busy}>
             {busy === "preparing" ? spin : <Icon name="cash" />}
             Terima pembayaran
           </Button>
@@ -254,24 +254,24 @@ function OrderCard({ order: fromServer, onChanged }: { order: Order; onChanged: 
         )}
         {order.status === "preparing" && (
           <>
-            <Button className="flex-1" onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
+            <Button size="sm" className="flex-1" onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
               {busy === "ready" ? spin : <Icon name="food-ready" />}
               Tandai siap
             </Button>
-            <Button variant="ghost" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
+            <Button size="sm" variant="outline" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
               {busy === "completed" && spin}
               Langsung selesai
             </Button>
           </>
         )}
         {order.status === "ready" && (
-          <Button className="flex-1" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
+          <Button size="sm" className="flex-1" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
             {busy === "completed" ? spin : <Icon name="correct" />}
             Sudah diambil
           </Button>
         )}
         {order.status === "pending" && (
-          <Button variant="destructive-outline" onClick={() => setConfirm("cancel")} disabled={!!busy}>
+          <Button size="sm" variant="destructive-outline" onClick={() => setConfirm("cancel")} disabled={!!busy}>
             Batalkan
           </Button>
         )}
@@ -305,8 +305,9 @@ function InvoiceButton({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false);
   return (
     <Button
-      variant="link"
+      variant="outline"
       size="xs"
+      className="ml-1.5"
       aria-label={`Unduh invoice ${order.invoiceNumber}`}
       disabled={busy}
       onClick={async () => {
@@ -320,7 +321,7 @@ function InvoiceButton({ order }: { order: Order }) {
         }
       }}
     >
-      {busy && <Spinner label={false} />}
+      {busy ? <Spinner label={false} /> : <Icon name="downloads" />}
       Invoice
     </Button>
   );

@@ -18,6 +18,7 @@ import { Button } from "~/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/components/ui/empty";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { EASE_IN, EASE_OUT } from "~/components/page-fade";
+import { Spinner } from "~/components/ui/spinner";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const id = new URL(request.url).searchParams.get("order_id");
@@ -382,7 +383,7 @@ function InvoiceButton({ order }: { order: Order }) {
         }
       }}
     >
-      {busy ? <span className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent" /> : <Icon name="downloads" />}
+      {busy ? <Spinner label={false} /> : <Icon name="downloads" />}
       Unduh invoice
     </Button>
   );
