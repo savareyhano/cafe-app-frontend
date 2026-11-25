@@ -606,10 +606,7 @@ function DishRow({
       />
       <div className="pointer-events-none grid min-w-0 content-between gap-2">
         <div className="grid gap-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="type-label-m">{item.name}</h3>
-            <Icon name="next" className="mt-1 size-4 shrink-0 text-ink-faint" />
-          </div>
+          <h3 className="type-label-m">{item.name}</h3>
           {item.description && (
             <p className="line-clamp-1 type-body-s text-ink-soft">
               {item.description}
