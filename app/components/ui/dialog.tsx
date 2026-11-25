@@ -69,23 +69,22 @@ function findScrollable(
   return null;
 }
 
-function DialogContent({
-  className,
-  children,
-  showCloseButton = true,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean;
+// Mounted inside DialogPortal > DialogPrimitive.Content so refs are always live when open
+function DialogSwipeController({
+  contentRef,
+  overlayRef,
+  closeRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  overlayRef: React.RefObject<HTMLDivElement | null>;
+  closeRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const contentRef = React.useRef<HTMLDivElement>(null);
-  const overlayRef = React.useRef<HTMLDivElement>(null);
-  const closeRef = React.useRef<HTMLButtonElement>(null);
-  const closingRef = React.useRef(false);
-  const timerRef = React.useRef<number>(0);
-
   React.useEffect(() => {
     const content = contentRef.current;
     if (!content) return;
+
+    let closing = false;
+    let timer = 0;
 
     const resetStyles = () => {
       content.style.transition = '';
@@ -97,7 +96,7 @@ function DialogContent({
         overlayRef.current.style.opacity = '';
         delete overlayRef.current.dataset.swiped;
       }
-      closingRef.current = false;
+      closing = false;
     };
 
     const applyDrag = (dy: number) => {
@@ -112,8 +111,11 @@ function DialogContent({
 
     const finishDrag = (dy: number, velocity: number) => {
       const threshold = Math.min(120, content.offsetHeight * 0.28);
+      const reducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
       if (dy > threshold || velocity > 0.35) {
-        closingRef.current = true;
+        closing = true;
         content.style.pointerEvents = 'none';
         content.style.transition = 'transform 180ms cubic-bezier(0.4, 0, 1, 1)';
         content.style.transform = 'translateY(100%)';
@@ -121,16 +123,19 @@ function DialogContent({
           overlayRef.current.style.transition = 'opacity 180ms ease-out';
           overlayRef.current.style.opacity = '0';
         }
-        window.clearTimeout(timerRef.current);
-        timerRef.current = window.setTimeout(() => {
-          content.dataset.swiped = 'true';
-          if (overlayRef.current) overlayRef.current.dataset.swiped = 'true';
-          closeRef.current?.click();
-          // Fallback in case a controlled parent blocks closing
-          timerRef.current = window.setTimeout(() => {
-            if (content.isConnected) resetStyles();
-          }, 80);
-        }, 180);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(
+          () => {
+            content.dataset.swiped = 'true';
+            if (overlayRef.current) overlayRef.current.dataset.swiped = 'true';
+            closeRef.current?.click();
+            // Fallback in case a controlled parent blocks closing
+            timer = window.setTimeout(() => {
+              if (content.isConnected) resetStyles();
+            }, 80);
+          },
+          reducedMotion ? 16 : 180,
+        );
       } else {
         content.style.transition = 'transform 200ms cubic-bezier(0, 0, 0.2, 1)';
         content.style.transform = 'translateY(0px)';
@@ -138,15 +143,14 @@ function DialogContent({
           overlayRef.current.style.transition = 'opacity 200ms ease-out';
           overlayRef.current.style.opacity = '';
         }
-        window.clearTimeout(timerRef.current);
-        timerRef.current = window.setTimeout(resetStyles, 200);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(resetStyles, reducedMotion ? 16 : 200);
       }
     };
 
     let touchState: {
       startX: number;
       startY: number;
-      lastY: number;
       lastT: number;
       v: number;
       dy: number;
@@ -156,7 +160,7 @@ function DialogContent({
     } | null = null;
 
     const onTouchStart = (e: TouchEvent) => {
-      if (closingRef.current || e.touches.length !== 1) return;
+      if (closing || e.touches.length !== 1) return;
       if (!window.matchMedia('(max-width: 639px)').matches) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest(INTERACTIVE_SELECTOR)) return;
@@ -165,7 +169,6 @@ function DialogContent({
       touchState = {
         startX: t.clientX,
         startY: t.clientY,
-        lastY: t.clientY,
         lastT: e.timeStamp,
         v: 0,
         dy: 0,
@@ -199,7 +202,6 @@ function DialogContent({
       const clamped = Math.max(0, dy);
       const dt = Math.max(1, e.timeStamp - touchState.lastT);
       touchState.v = (clamped - touchState.dy) / dt;
-      touchState.lastY = t.clientY;
       touchState.lastT = e.timeStamp;
       touchState.dy = clamped;
       applyDrag(clamped);
@@ -246,13 +248,13 @@ function DialogContent({
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      if (closingRef.current || e.pointerType !== 'mouse' || e.button !== 0)
-        return;
+      if (closing || e.pointerType !== 'mouse' || e.button !== 0) return;
       if (!window.matchMedia('(max-width: 639px)').matches) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest(INTERACTIVE_SELECTOR)) return;
       const scrollEl = findScrollable(target, content);
       if (scrollEl && scrollEl.scrollTop > 0) return;
+      e.preventDefault();
       mouseState = {
         startY: e.clientY,
         lastT: e.timeStamp,
@@ -272,7 +274,7 @@ function DialogContent({
     content.addEventListener('pointerdown', onPointerDown);
 
     return () => {
-      window.clearTimeout(timerRef.current);
+      window.clearTimeout(timer);
       content.removeEventListener('touchstart', onTouchStart);
       content.removeEventListener('touchmove', onTouchMove);
       content.removeEventListener('touchend', onTouchEnd);
@@ -282,7 +284,22 @@ function DialogContent({
       window.removeEventListener('pointerup', onMouseUp);
       window.removeEventListener('pointercancel', onMouseUp);
     };
-  }, []);
+  }, [contentRef, overlayRef, closeRef]);
+
+  return null;
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean;
+}) {
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const overlayRef = React.useRef<HTMLDivElement>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
 
   return (
     <DialogPortal>
@@ -296,6 +313,11 @@ function DialogContent({
         )}
         {...props}
       >
+        <DialogSwipeController
+          contentRef={contentRef}
+          overlayRef={overlayRef}
+          closeRef={closeRef}
+        />
         {children}
         <DialogPrimitive.Close
           ref={closeRef}

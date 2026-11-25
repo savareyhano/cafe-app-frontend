@@ -586,27 +586,10 @@ function DishRow({
   onQty: (n: number) => void;
   onPreview: () => void;
 }) {
-  const descRef = useRef<HTMLParagraphElement>(null);
-  const [truncated, setTruncated] = useState(false);
-
-  useEffect(() => {
-    const el = descRef.current;
-    if (!el) return setTruncated(false);
-    const check = () =>
-      setTruncated(
-        el.scrollHeight > el.clientHeight + 1 ||
-          el.scrollWidth > el.clientWidth + 1,
-      );
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [item.description]);
-
   return (
     <li
       id={`dish-${item.id}`}
-      className="relative -mx-2 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 rounded-xl border-b px-2 py-4 transition-colors duration-[120ms] last:border-b-0 hover:bg-fill-hover/60 md:[&:nth-last-child(2):nth-child(odd)]:border-b-0"
+      className="relative -mx-2 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 rounded-xl border-b px-2 py-4 transition-colors duration-[120ms] last:border-b-0 hover:bg-fill-hover/60 active:bg-fill-press/40 md:[&:nth-last-child(2):nth-child(odd)]:border-b-0"
     >
       {/* Stretched button makes the entire dish card clickable while keeping quick-add controls separate */}
       <button
@@ -623,22 +606,14 @@ function DishRow({
       />
       <div className="pointer-events-none grid min-w-0 content-between gap-2">
         <div className="grid gap-1">
-          <h3 className="type-label-m">{item.name}</h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="type-label-m">{item.name}</h3>
+            <Icon name="next" className="mt-1 size-4 shrink-0 text-ink-faint" />
+          </div>
           {item.description && (
-            <div className="grid gap-0.5">
-              <p
-                ref={descRef}
-                className="line-clamp-1 type-body-s text-ink-soft"
-              >
-                {item.description}
-              </p>
-              {truncated && (
-                <span className="inline-flex items-center gap-0.5 type-label-xs text-ink-brand">
-                  Selengkapnya
-                  <Icon name="next" className="size-3.5" />
-                </span>
-              )}
-            </div>
+            <p className="line-clamp-1 type-body-s text-ink-soft">
+              {item.description}
+            </p>
           )}
         </div>
         <div className="flex min-h-10 items-center justify-between gap-2">
@@ -709,7 +684,7 @@ function MenuDetailDialog({
       >
         {item && (
           <form onSubmit={commit} className="flex max-h-[92dvh] flex-col">
-            <div className="relative shrink-0 touch-none select-none">
+            <div className="relative shrink-0 touch-none select-none max-sm:cursor-grab max-sm:active:cursor-grabbing">
               <span
                 aria-hidden
                 className="pointer-events-none absolute top-2.5 left-1/2 z-10 h-1 w-10 -translate-x-1/2 rounded-full bg-white/85 shadow-ds-1 sm:hidden"

@@ -55,6 +55,7 @@ export function MenuThumb({
           height={224}
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
+          draggable={false}
           // Fades in over the placeholder once it has loaded
           className="absolute inset-0 size-full object-cover opacity-0 transition-opacity duration-200 ease-out data-loaded:opacity-100"
           onLoad={(e) => (e.currentTarget.dataset.loaded = '')}
