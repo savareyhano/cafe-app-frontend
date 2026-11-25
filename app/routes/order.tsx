@@ -592,7 +592,11 @@ function DishRow({
   useEffect(() => {
     const el = descRef.current;
     if (!el) return setTruncated(false);
-    const check = () => setTruncated(el.scrollHeight > el.clientHeight + 1);
+    const check = () =>
+      setTruncated(
+        el.scrollHeight > el.clientHeight + 1 ||
+          el.scrollWidth > el.clientWidth + 1,
+      );
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -624,7 +628,7 @@ function DishRow({
             <div className="grid gap-0.5">
               <p
                 ref={descRef}
-                className="line-clamp-2 type-body-s text-ink-soft"
+                className="line-clamp-1 type-body-s text-ink-soft"
               >
                 {item.description}
               </p>
@@ -705,7 +709,7 @@ function MenuDetailDialog({
       >
         {item && (
           <form onSubmit={commit} className="flex max-h-[92dvh] flex-col">
-            <div className="relative shrink-0">
+            <div className="relative shrink-0 touch-none select-none">
               <span
                 aria-hidden
                 className="pointer-events-none absolute top-2.5 left-1/2 z-10 h-1 w-10 -translate-x-1/2 rounded-full bg-white/85 shadow-ds-1 sm:hidden"
