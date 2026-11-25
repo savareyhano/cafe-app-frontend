@@ -1,0 +1,249 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./styles/tokens.css";
+
+/* The theme script always resolves to an explicit data-mode, so dark: utilities follow it */
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
+/* shadcn roles point at the design tokens. Each token is declared once with light-dark(), so
+   one mapping serves both modes. */
+:root {
+  --radius: 1rem;
+  --background: var(--ds-bg-subtle);
+  --foreground: var(--ds-ink);
+  --card: var(--ds-bg-surface);
+  --card-foreground: var(--ds-ink);
+  --popover: var(--ds-bg-surface);
+  --popover-foreground: var(--ds-ink);
+  --primary: var(--ds-fill-brand);
+  --primary-foreground: var(--ds-ink-on-brand);
+  --secondary: var(--ds-fill-brand-tint);
+  --secondary-foreground: var(--ds-ink-brand);
+  --muted: var(--ds-bg-muted);
+  --muted-foreground: var(--ds-ink-faint);
+  --accent: var(--ds-fill-surface-hover);
+  --accent-foreground: var(--ds-ink);
+  --destructive: var(--ds-fill-danger);
+  --border: var(--ds-line);
+  --input: var(--ds-field-border);
+  --ring: var(--ds-control-focus);
+  --chart-1: var(--ds-series-brand);
+  --chart-2: var(--ds-hue-teal);
+  --chart-3: var(--ds-hue-orange);
+  --chart-4: var(--ds-hue-green);
+  --chart-5: var(--ds-hue-red);
+  --sidebar: var(--ds-bg-surface);
+  --sidebar-foreground: var(--ds-ink-soft);
+  --sidebar-primary: var(--ds-fill-brand);
+  --sidebar-primary-foreground: var(--ds-ink-on-brand);
+  --sidebar-accent: var(--ds-fill-brand-tint);
+  --sidebar-accent-foreground: var(--ds-ink-brand);
+  --sidebar-border: var(--ds-line);
+  --sidebar-ring: var(--ds-control-focus);
+  /* The customer app's canvas: light grey that white groups sit on */
+  --app-canvas: light-dark(color-mix(in srgb, var(--ds-bg-muted) 55%, var(--ds-bg-surface)), var(--ds-bg-subtle));
+}
+
+@theme inline {
+  --font-sans: var(--ds-font-text);
+  --font-mono: var(--ds-font-code);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Design-token roles shadcn has no name for */
+  --color-surface: var(--ds-bg-surface);
+  --color-canvas: var(--app-canvas);
+  --color-ink: var(--ds-ink);
+  --color-ink-soft: var(--ds-ink-soft);
+  --color-ink-faint: var(--ds-ink-faint);
+  --color-ink-brand: var(--ds-ink-brand);
+  --color-ink-disabled: var(--ds-ink-disabled);
+  --color-line-strong: var(--ds-line-strong);
+  --color-line-brand: var(--ds-line-brand);
+  --color-fill-hover: var(--ds-fill-surface-hover);
+  --color-fill-press: var(--ds-fill-surface-press);
+  --color-fill-disabled: var(--ds-fill-disabled);
+  --color-brand-hover: var(--ds-fill-brand-hover);
+  --color-brand-press: var(--ds-fill-brand-press);
+  --color-brand-tint-hover: var(--ds-fill-brand-tint-hover);
+  --color-brand-tint-press: var(--ds-fill-brand-tint-press);
+  --color-danger: var(--ds-fill-danger);
+  --color-danger-hover: var(--ds-fill-danger-hover);
+  --color-danger-press: var(--ds-fill-danger-press);
+  --color-danger-tint: var(--ds-status-danger-tint);
+  --color-danger-tint-hover: var(--ds-fill-danger-tint-hover);
+  --color-danger-ink: var(--ds-ink-danger);
+  --color-success: var(--ds-status-success);
+  --color-success-tint: var(--ds-status-success-tint);
+  --color-success-ink: var(--ds-ink-success);
+  --color-warning: var(--ds-status-warning);
+  --color-warning-tint: var(--ds-status-warning-tint);
+  --color-warning-ink: var(--ds-ink-warning);
+  --color-info: var(--ds-status-info);
+  --color-info-tint: var(--ds-status-info-tint);
+  --color-info-ink: var(--ds-ink-info);
+  --color-band: var(--ds-shell-band);
+  --color-band-pill: var(--ds-shell-band-pill);
+  --color-star: var(--ds-hue-orange);
+  --color-scrim: var(--ds-scrim-medium);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: var(--ds-radius-box-s);
+  --radius-xl: var(--ds-radius-box-m);
+  --radius-2xl: var(--ds-radius-box-l);
+  --radius-3xl: var(--ds-radius-box-l);
+  --radius-4xl: var(--ds-radius-pill);
+
+  --shadow-ds-1: var(--ds-shadow-1);
+  --shadow-ds-2: var(--ds-shadow-2);
+  --shadow-ds-3: var(--ds-shadow-3);
+
+  --ease-ds: var(--ds-ease-standard);
+  --ease-ds-in: var(--ds-ease-move-in);
+  --ease-ds-flair: var(--ds-ease-flair-in);
+}
+
+/* The type scale as utilities: each token is a font shorthand (weight size/line-height family) */
+@utility type-display-l { font: var(--ds-type-display-l); }
+@utility type-display-m { font: var(--ds-type-display-m); }
+@utility type-display-s { font: var(--ds-type-display-s); }
+@utility type-display-xs { font: var(--ds-type-display-xs); }
+@utility type-heading-s { font: var(--ds-type-heading-s); }
+@utility type-label-l { font: var(--ds-type-label-l); }
+@utility type-label-m { font: var(--ds-type-label-m); }
+@utility type-label-s { font: var(--ds-type-label-s); }
+@utility type-label-xs { font: var(--ds-type-label-xs); }
+@utility type-body-l { font: var(--ds-type-body-l); }
+@utility type-body-m { font: var(--ds-type-body-m); }
+@utility type-body-s { font: var(--ds-type-body-s); }
+@utility type-body-xs { font: var(--ds-type-body-xs); }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font: var(--ds-type-body-m);
+    color: var(--ds-ink);
+    background: var(--ds-bg-canvas);
+    accent-color: var(--ds-selected);
+    caret-color: var(--ds-control-accent);
+    scrollbar-color: var(--ds-line-strong) transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply min-h-dvh bg-background text-foreground;
+  }
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  ::selection {
+    background: var(--ds-fill-brand-tint-press);
+    color: var(--ds-ink);
+  }
+  /* Keyboard focus: a 2px blue outline */
+  :focus-visible {
+    outline: 2px solid var(--ds-control-focus);
+    outline-offset: 2px;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  [data-num] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Rate-us illustration: review cards drift into place once */
+@keyframes review-in {
+  from { opacity: 0; translate: 0 1.5rem; }
+}
+@keyframes review-in-front {
+  from { opacity: 0; translate: 0 2rem; scale: 0.92; }
+}
+
+/* Banner carousel: the active dot fills while the slide waits */
+@keyframes carousel-timer {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Dashboard chart: a bar the new period adds grows from the axis */
+@keyframes bar-grow {
+  from { height: 0; }
+}
+
+/* Toasts drop 12px in over 220ms, then lift and fade out over 150ms (the library's default slides a full height over 400ms) */
+[data-sonner-toaster] [data-sonner-toast] {
+  transition: transform 220ms cubic-bezier(0, 0, 0.2, 1), opacity 220ms cubic-bezier(0, 0, 0.2, 1), height 220ms, box-shadow 200ms;
+}
+[data-sonner-toaster] [data-sonner-toast][data-y-position="top"][data-mounted="false"] {
+  --y: translateY(-12px);
+}
+[data-sonner-toaster] [data-sonner-toast][data-removed="true"] {
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+[data-sonner-toaster] [data-sonner-toast][data-y-position="top"][data-removed="true"][data-front="true"][data-swipe-out="false"] {
+  --y: translateY(-12px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The carousel timer keeps its real length: at 0.01ms it would flip slides nonstop */
+  [data-carousel-timer] {
+    animation-duration: 4.5s !important;
+  }
+  /* Loaders keep turning: a frozen ring reads as a hang */
+  [data-slot="spinner"] {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* Print: only the element marked for print (QR sheet) */
+@media print {
+  @page { margin: 10mm; }
+  body * { visibility: hidden; }
+  [data-print-root], [data-print-root] * { visibility: visible; }
+  [data-print-root] { position: absolute; inset: 0; }
+  [data-print-hide] { display: none !important; }
+}
