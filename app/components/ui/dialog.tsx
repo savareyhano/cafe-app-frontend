@@ -85,11 +85,18 @@ function DialogSwipeController({
 
     let closing = false;
     let timer = 0;
+    // Radix keeps pointer-events:auto inline on the content (the body gets none while the dialog is
+    // modal). Clearing it would make every later touch fall through to the overlay, so only a value
+    // this controller overrode is put back.
+    let savedPointerEvents: string | null = null;
 
     const resetStyles = () => {
       content.style.transition = '';
       content.style.transform = '';
-      content.style.pointerEvents = '';
+      if (savedPointerEvents !== null) {
+        content.style.pointerEvents = savedPointerEvents;
+        savedPointerEvents = null;
+      }
       delete content.dataset.swiped;
       if (overlayRef.current) {
         overlayRef.current.style.transition = '';
@@ -116,6 +123,7 @@ function DialogSwipeController({
       ).matches;
       if (dy > threshold || velocity > 0.35) {
         closing = true;
+        savedPointerEvents ??= content.style.pointerEvents;
         content.style.pointerEvents = 'none';
         content.style.transition = 'transform 180ms cubic-bezier(0.4, 0, 1, 1)';
         content.style.transform = 'translateY(100%)';
