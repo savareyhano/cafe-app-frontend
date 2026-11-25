@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { readJson, writeJson } from "~/lib/storage";
+import { useCallback, useEffect, useState } from 'react';
+import { readJson, writeJson } from '~/lib/storage';
 
 export type CartLine = { menuItemId: string; quantity: number; note: string };
 
-const KEY = "cart";
+const KEY = 'cart';
 export const MAX_QTY = 100; // backend limit per line
 
 export function useCart() {
@@ -25,32 +25,54 @@ export function useCart() {
       update((prev) => {
         const q = Math.max(0, Math.min(MAX_QTY, quantity));
         return prev.some((l) => l.menuItemId === menuItemId)
-          ? prev.map((l) => (l.menuItemId === menuItemId ? { ...l, quantity: q } : l))
-          : [...prev, { menuItemId, quantity: q, note: "" }];
+          ? prev.map((l) =>
+              l.menuItemId === menuItemId ? { ...l, quantity: q } : l,
+            )
+          : [...prev, { menuItemId, quantity: q, note: '' }];
       }),
     [update],
   );
 
   const setNote = useCallback(
     (menuItemId: string, note: string) =>
-      update((prev) => prev.map((l) => (l.menuItemId === menuItemId ? { ...l, note } : l))),
+      update((prev) =>
+        prev.map((l) => (l.menuItemId === menuItemId ? { ...l, note } : l)),
+      ),
+    [update],
+  );
+
+  const setLine = useCallback(
+    (menuItemId: string, quantity: number, note: string) =>
+      update((prev) => {
+        const q = Math.max(0, Math.min(MAX_QTY, quantity));
+        if (q === 0) return prev.filter((l) => l.menuItemId !== menuItemId);
+        return prev.some((l) => l.menuItemId === menuItemId)
+          ? prev.map((l) =>
+              l.menuItemId === menuItemId ? { ...l, quantity: q, note } : l,
+            )
+          : [...prev, { menuItemId, quantity: q, note }];
+      }),
     [update],
   );
 
   /** Drops lines whose menu item no longer exists. */
   const prune = useCallback(
-    (validIds: Set<string>) => update((prev) => prev.filter((l) => validIds.has(l.menuItemId))),
+    (validIds: Set<string>) =>
+      update((prev) => prev.filter((l) => validIds.has(l.menuItemId))),
     [update],
   );
 
   const clear = useCallback(() => update(() => []), [update]);
 
-  const qtyOf = (id: string) => lines.find((l) => l.menuItemId === id)?.quantity ?? 0;
+  const qtyOf = (id: string) =>
+    lines.find((l) => l.menuItemId === id)?.quantity ?? 0;
+  const noteOf = (id: string) =>
+    lines.find((l) => l.menuItemId === id)?.note ?? '';
 
-  return { lines, setQty, setNote, prune, clear, qtyOf };
+  return { lines, setQty, setNote, setLine, prune, clear, qtyOf, noteOf };
 }
 
-const TABLE_KEY = "table";
+const TABLE_KEY = 'table';
 
 /** Table number from the QR link (?meja=N), kept for this browser tab. */
 export function readTable(search: URLSearchParams): number | null {
@@ -58,7 +80,7 @@ export function readTable(search: URLSearchParams): number | null {
     const n = Number(v);
     return Number.isInteger(n) && n >= 1 && n <= 1000 ? n : null;
   };
-  const fromUrl = parse(search.get("meja"));
+  const fromUrl = parse(search.get('meja'));
   try {
     if (fromUrl) sessionStorage.setItem(TABLE_KEY, String(fromUrl));
     return fromUrl ?? parse(sessionStorage.getItem(TABLE_KEY));
