@@ -50,7 +50,7 @@ export async function downloadInvoice(order: Order) {
     doc.setFontSize(10);
     doc.text("INVOICE", M, y);
     doc.setFontSize(8);
-    doc.text(order.paidAt ? "LUNAS" : "BELUM DIBAYAR", right, y, { align: "right" });
+    doc.text(order.paidAt ? "SUDAH DIBAYAR" : "BELUM DIBAYAR", right, y, { align: "right" });
     y += 5;
     row("No.", order.invoiceNumber);
     row("Tanggal", formatDateTime(order.createdAt));
@@ -69,7 +69,7 @@ export async function downloadInvoice(order: Order) {
       y += name.length * LH;
       doc.setFont("helvetica", "normal");
       doc.setTextColor(90);
-      doc.text(`${it.quantity} x ${rupiah(it.priceAtOrder)}`, M, y);
+      doc.text(`${it.quantity} × ${rupiah(it.priceAtOrder)}`, M, y);
       y += LH;
       for (const n of it.note ? wrap(`Catatan: ${it.note}`, W - 2 * M) : []) {
         doc.text(n, M, y);

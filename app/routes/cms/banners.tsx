@@ -45,9 +45,11 @@ export default function Banners({ loaderData }: Route.ComponentProps) {
     revalidator.revalidate();
   };
 
-  const move = async (index: number, dir: -1 | 1) => {
+  // Moves a banner to a chosen position; the ones in between shift by one
+  const moveTo = async (from: number, to: number) => {
+    if (from === to) return;
     const next = [...banners];
-    [next[index], next[index + dir]] = [next[index + dir], next[index]];
+    next.splice(to, 0, ...next.splice(from, 1));
     setBanners(next);
     try {
       await api.reorderBanners(next.map((b) => b.id));
@@ -141,31 +143,34 @@ export default function Banners({ loaderData }: Route.ComponentProps) {
                       <Switch checked={!!b.isActive} onCheckedChange={(v) => toggle(b, v)} aria-label={`Tampilkan banner ${i + 1}`} />
                       <span aria-hidden className={cn(!b.isActive && "text-ink-soft")}>{b.isActive ? "Tampil" : "Disembunyikan"}</span>
                     </label>
-                    <Button variant="ghost" size="icon-sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Naikkan banner ${i + 1}`} title="Naikkan">
-                      <Icon name="expand-less" className="size-5" />
+                    {banners.length > 1 && (
+                      <NativeSelect
+                        size="sm"
+                        className="w-auto"
+                        aria-label={`Urutan banner ${i + 1}`}
+                        value={i}
+                        onChange={(e) => moveTo(i, Number(e.target.value))}
+                      >
+                        {banners.map((_, n) => (
+                          <NativeSelectOption key={n} value={n}>
+                            Urutan {n + 1}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    )}
+                    <Button variant="ghost" size="sm" className="px-3" onClick={() => setEditing(b)} aria-label={`Ubah banner ${i + 1}`}>
+                      <Icon name="edit" />
+                      Ubah
                     </Button>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      disabled={i === banners.length - 1}
-                      onClick={() => move(i, 1)}
-                      aria-label={`Turunkan banner ${i + 1}`}
-                      title="Turunkan"
-                    >
-                      <Icon name="expand-more" className="size-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => setEditing(b)} aria-label={`Ubah banner ${i + 1}`} title="Ubah">
-                      <Icon name="edit" className="size-5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="text-danger-ink hover:bg-danger-tint-hover"
+                      size="sm"
+                      className="px-3 text-danger-ink hover:bg-danger-tint-hover"
                       onClick={() => setDeleting(b)}
                       aria-label={`Hapus banner ${i + 1}`}
-                      title="Hapus"
                     >
-                      <Icon name="delete" className="size-5" />
+                      <Icon name="delete" />
+                      Hapus
                     </Button>
                   </div>
                 </div>

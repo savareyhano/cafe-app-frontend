@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { Route } from "./+types/order-status";
 import { api, ApiError, errorMessage } from "~/lib/api";
 import { CAFE_ADDRESS, CAFE_NAME } from "~/lib/config";
-import { formatDate, formatDateTime, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
+import { formatDateTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
 import { readJson, recentOrders, writeJson } from "~/lib/storage";
 import type { Order, OrderStatus } from "~/lib/types";
 import { cn } from "~/lib/utils";
@@ -19,6 +19,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { EASE_IN, EASE_OUT } from "~/components/page-fade";
 import { Spinner } from "~/components/ui/spinner";
+import { ModeToggle } from "~/components/mode-toggle";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const id = new URL(request.url).searchParams.get("order_id");
@@ -90,12 +91,12 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
             <span className="sr-only">Nomor pesanan </span>
             {order.invoiceNumber}
           </h2>
-          <span className="type-body-s text-ink-soft">{formatDate(order.createdAt)}</span>
+          <span className="type-body-s text-ink-soft">{formatDateTime(order.createdAt)}</span>
         </div>
 
         {order.status === "cancelled" ? (
           <div className="flex items-start gap-3 rounded-lg bg-danger-tint p-4 text-danger-ink">
-            <Icon name="cancel" className="mt-0.5 size-5" />
+            <Icon name="block" className="mt-0.5 size-5" />
             <p className="type-body-s">
               <span className="block type-label-s">Pesanan dibatalkan</span>
               {order.paymentMethod === "cashless" && !order.paidAt
@@ -113,7 +114,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
         <InfoRow
           icon={order.paymentMethod === "cash" ? "cash" : "wallet"}
           title={PAYMENT_LABEL[order.paymentMethod]}
-          sub={order.paidAt ? `Lunas · ${formatDateTime(order.paidAt)}` : "Belum dibayar"}
+          sub={order.paidAt ? `Sudah dibayar · ${formatDateTime(order.paidAt)}` : "Belum dibayar"}
         />
         <InfoRow icon="bill" title={`${itemCount} item`}>
           <dl className="mt-2 grid gap-1 type-body-s">
@@ -132,15 +133,16 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
             <li key={it.id} className="flex gap-3 border-b py-4 last:border-b-0">
               <MenuThumb src={it.menuItems?.imageUrl} alt="" className="size-16 rounded-md" />
               <div className="grid min-w-0 flex-1 gap-0.5">
-                <span className="type-label-s">{it.menuItems?.name ?? "Menu sudah dihapus"}</span>
+                <span className="type-label-s">
+                  <span className="tabular-nums">{it.quantity}×</span> {it.menuItems?.name ?? "Menu dihapus"}
+                </span>
                 {it.note && (
                   <span className="type-body-s text-ink-soft">
                     <span className="type-label-xs text-ink">Catatan:</span> {it.note}
                   </span>
                 )}
-                <span className="mt-1 type-label-s tabular-nums">{rupiah(it.priceAtOrder)}</span>
               </div>
-              <span className="type-label-s text-ink-soft tabular-nums">x{it.quantity}</span>
+              <span className="type-label-s tabular-nums">{rupiah(it.priceAtOrder * it.quantity)}</span>
             </li>
           ))}
         </ul>
@@ -174,6 +176,7 @@ function Frame({ children, table }: { children: React.ReactNode; table?: number 
         </Button>
         <h1 className="flex-1 truncate type-label-l">Detail Pesanan</h1>
         {table && <Badge variant="solid">Meja {table}</Badge>}
+        <ModeToggle />
       </header>
       <main className="grid flex-1 content-start gap-3 pb-6 md:pt-4">{children}</main>
       <SiteFooter />
@@ -186,7 +189,7 @@ const HERO: Record<OrderStatus, { icon: IconName; tone: string }> = {
   preparing: { icon: "freshly-made", tone: "bg-info-tint text-info-ink" },
   ready: { icon: "food-ready", tone: "bg-success-tint text-success-ink" },
   completed: { icon: "order-completion", tone: "bg-muted text-ink-soft" },
-  cancelled: { icon: "cancel", tone: "bg-danger-tint text-danger-ink" },
+  cancelled: { icon: "block", tone: "bg-danger-tint text-danger-ink" },
 };
 
 function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof useReadySound> }) {
@@ -283,7 +286,7 @@ function SoundPrompt({ onEnable }: { onEnable: () => void }) {
 
 function Progress({ status, paymentMethod }: { status: OrderStatus; paymentMethod: Order["paymentMethod"] }) {
   const steps = [
-    paymentMethod === "cash" ? "Bayar di kasir" : "Menunggu pembayaran",
+    paymentMethod === "cash" ? "Bayar di kasir" : "Belum bayar",
     "Disiapkan",
     "Siap diambil",
     "Selesai",
@@ -416,7 +419,7 @@ function OtherOrders({ currentId }: { currentId: string }) {
               <span className="grid min-w-0 flex-1">
                 <span className="type-label-s">{o.invoiceNumber}</span>
                 <span className="type-body-xs text-ink-soft">
-                  {formatDate(o.createdAt)} · {formatTime(o.createdAt)} · {rupiah(o.total)}
+                  {formatDateTime(o.createdAt)} · {rupiah(o.total)}
                 </span>
               </span>
               <Badge variant={STATUS_BADGE[o.status]}>{STATUS_LABEL[o.status]}</Badge>

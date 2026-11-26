@@ -16,6 +16,8 @@ export function SearchInput({
   className?: string;
 }) {
   const [value, setValue] = useState(defaultValue);
+  // Follow the URL when it changes from outside (e.g. a "Hapus pencarian" button), not while typing
+  useEffect(() => setValue((v) => (v.trim() === defaultValue ? v : defaultValue)), [defaultValue]);
   useEffect(() => {
     if (value.trim() === defaultValue) return;
     const t = setTimeout(() => onSearch(value.trim()), 300);

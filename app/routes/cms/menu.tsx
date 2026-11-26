@@ -116,13 +116,20 @@ export default function MenuPage({ loaderData }: Route.ComponentProps) {
             <EmptyMedia variant="icon">
               <Icon name="food-menu" />
             </EmptyMedia>
-            <EmptyTitle>{sp.get("cari") ? "Tidak ada menu yang cocok" : "Menu masih kosong"}</EmptyTitle>
-            <EmptyDescription>
-              {sp.get("cari")
-                ? "Coba kata lain atau hapus pencarian."
-                : "Tambahkan menu pertama. Pelanggan baru bisa memesan setelah ada menu."}
-            </EmptyDescription>
+            {sp.get("cari") ? (
+              <EmptyTitle>Tidak ada yang cocok dengan “{sp.get("cari")}”</EmptyTitle>
+            ) : (
+              <>
+                <EmptyTitle>Menu masih kosong</EmptyTitle>
+                <EmptyDescription>Tambahkan menu pertama. Pelanggan baru bisa memesan setelah ada menu.</EmptyDescription>
+              </>
+            )}
           </EmptyHeader>
+          {sp.get("cari") && (
+            <Button variant="outline" size="sm" onClick={() => setParam("cari", "")}>
+              Hapus pencarian
+            </Button>
+          )}
           {!sp.get("cari") && (
             <Button onClick={() => setEditing("new")}>
               <Icon name="plus" />
@@ -159,18 +166,19 @@ export default function MenuPage({ loaderData }: Route.ComponentProps) {
                 </TableCell>
                 <TableCell className="text-right type-label-s whitespace-nowrap tabular-nums">{rupiah(m.price)}</TableCell>
                 <TableCell className="text-right whitespace-nowrap">
-                  <Button variant="ghost" size="icon-sm" onClick={() => setEditing(m)} aria-label={`Ubah ${m.name}`} title="Ubah">
-                    <Icon name="edit" className="size-5" />
+                  <Button variant="ghost" size="sm" className="px-3" onClick={() => setEditing(m)} aria-label={`Ubah ${m.name}`}>
+                    <Icon name="edit" />
+                    Ubah
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
-                    className="text-danger-ink hover:bg-danger-tint-hover"
+                    size="sm"
+                    className="px-3 text-danger-ink hover:bg-danger-tint-hover"
                     onClick={() => setDeleting(m)}
                     aria-label={`Hapus ${m.name}`}
-                    title="Hapus"
                   >
-                    <Icon name="delete" className="size-5" />
+                    <Icon name="delete" />
+                    Hapus
                   </Button>
                 </TableCell>
               </TableRow>

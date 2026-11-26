@@ -5,16 +5,16 @@ const num = new Intl.NumberFormat("id-ID");
 /** Rupiah without decimals, as Indonesian receipts write it: Rp25.000 */
 export const rupiah = (n: number) => `Rp${num.format(Math.round(n))}`;
 
-const dateTime = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" });
 const dateOnly = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short", year: "numeric" });
 const timeOnly = new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" });
 
-export const formatDateTime = (iso: string) => dateTime.format(new Date(iso));
 export const formatDate = (iso: string) => dateOnly.format(new Date(iso));
 export const formatTime = (iso: string) => timeOnly.format(new Date(iso));
+/** The one date-time style everywhere: 24 Nov 2026, 10.09 */
+export const formatDateTime = (iso: string) => `${formatDate(iso)}, ${formatTime(iso)}`;
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "Menunggu pembayaran",
+  pending: "Belum bayar",
   preparing: "Disiapkan",
   ready: "Siap diambil",
   completed: "Selesai",
@@ -30,7 +30,7 @@ export const STATUS_BADGE: Record<OrderStatus, "warning" | "info" | "success" | 
 };
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  cash: "Tunai di kasir",
+  cash: "Tunai",
   cashless: "Non-tunai",
 };
 

@@ -4,7 +4,7 @@ import { cn } from "~/lib/utils";
 // these by scripts/build-icons.mjs, so add a name here before using it.
 export const ICONS = [
   "my-orders", "order-completion", "promo",
-  "admin", "back", "bill", "cancel", "cash", "copy", "correct", "cutlery-provided", "daily-needs",
+  "admin", "back", "bill", "block", "cancel", "cash", "copy", "correct", "cutlery-provided", "daily-needs",
   "dark-theme", "delete", "dish", "downloads", "downward", "edit", "error", "expand-less",
   "expand-more", "food-menu", "food-ready", "freshly-made", "group", "image", "info",
   "light-theme", "location", "logout", "menu", "minus", "next", "notes", "overflow-vertical",

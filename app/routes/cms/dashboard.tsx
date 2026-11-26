@@ -4,7 +4,7 @@ import { Link, useRevalidator, useSearchParams } from "react-router";
 import type { Route } from "./+types/dashboard";
 import { CmsPage, onBand } from "~/components/cms-shell";
 import { api } from "~/lib/api";
-import { formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL, TYPE_LABEL } from "~/lib/format";
+import { formatDateTime, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL, TYPE_LABEL } from "~/lib/format";
 import { ADMIN, requireUser } from "~/lib/session";
 import type { DashboardData, OrderStatus } from "~/lib/types";
 import { cn } from "~/lib/utils";
@@ -198,12 +198,12 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                         {o.customerName} · Meja {o.tableNumber}
                       </span>
                       <span className="truncate type-body-xs text-ink-soft tabular-nums">
-                        {o.invoiceNumber} · {formatTime(o.createdAt)}
+                        {o.invoiceNumber} · {formatDateTime(o.createdAt)}
                       </span>
                     </span>
                     <span className="grid justify-items-end gap-1">
                       <span className="type-label-s tabular-nums">{rupiah(o.total)}</span>
-                      <Badge variant={STATUS_BADGE[o.status]} size="sm">
+                      <Badge variant={STATUS_BADGE[o.status]}>
                         {STATUS_LABEL[o.status]}
                       </Badge>
                     </span>
@@ -250,7 +250,7 @@ function RevenueChart({ points, period }: { points: DashboardData["revenueChart"
   const shown = active ?? points.reduce((best, p, i) => (p.revenue > points[best].revenue ? i : best), 0);
   const labelEvery = Math.ceil(points.length / 8);
 
-  if (points.length === 0) return <EmptyLine text="Tidak ada data untuk periode ini." />;
+  if (points.length === 0) return <EmptyLine text="Belum ada penjualan di periode ini." />;
 
   return (
     <div className="grid gap-3">

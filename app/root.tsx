@@ -8,6 +8,7 @@ import { Toaster } from "~/components/ui/sonner";
 import { Button } from "~/components/ui/button";
 import { Spinner } from "~/components/ui/spinner";
 import { PageFade } from "~/components/page-fade";
+import { NavProgress } from "~/components/nav-progress";
 import { Icon } from "~/components/icon";
 import { themeScript } from "~/lib/theme";
 import { CAFE_NAME } from "~/lib/config";
@@ -54,6 +55,7 @@ export default function App() {
     <LazyMotion features={loadMotion} strict>
       {/* Reduce motion: transforms are dropped, opacity fades stay */}
       <MotionConfig reducedMotion="user">
+        <NavProgress />
         <PageFade key={pageKey(location)} pageKey={pageKey} initial={pageKey(location) !== "cms"}>
           <Outlet />
         </PageFade>

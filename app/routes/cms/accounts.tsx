@@ -104,9 +104,11 @@ export default function Accounts({ loaderData }: Route.ComponentProps) {
             <EmptyMedia variant="icon">
               <Icon name="group" />
             </EmptyMedia>
-            <EmptyTitle>Tidak ada akun yang cocok</EmptyTitle>
-            <EmptyDescription>Periksa ejaan nama pengguna atau hapus pencarian.</EmptyDescription>
+            <EmptyTitle>Tidak ada yang cocok dengan “{sp.get("cari")}”</EmptyTitle>
           </EmptyHeader>
+          <Button variant="outline" size="sm" onClick={() => setParam("cari", "")}>
+            Hapus pencarian
+          </Button>
         </Empty>
       ) : (
         <Table>

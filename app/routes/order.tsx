@@ -50,6 +50,7 @@ import {
 import { Spinner } from '~/components/ui/spinner';
 import { AnimatePresence, m } from 'motion/react';
 import { EASE_IN, EASE_OUT } from '~/components/page-fade';
+import { ModeToggle } from '~/components/mode-toggle';
 
 export async function clientLoader() {
   const [menu, banners] = await Promise.all([
@@ -153,6 +154,7 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
               </Link>
             </Button>
           )}
+          <ModeToggle />
         </div>
         <div className="px-4">
           <label className="relative block">
@@ -232,18 +234,16 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
               <EmptyMedia variant="icon">
                 <Icon name="search" />
               </EmptyMedia>
-              <EmptyTitle>Tidak ada yang cocok</EmptyTitle>
-              <EmptyDescription>
-                Tidak ada menu untuk “{query}”. Coba kata lain atau pilih
-                kategori Semua.
-              </EmptyDescription>
+              <EmptyTitle>
+                {query ? <>Tidak ada yang cocok dengan “{query}”</> : 'Belum ada menu di kategori ini'}
+              </EmptyTitle>
             </EmptyHeader>
             <Button
               variant="outline"
               size="sm"
               onClick={() => (setQuery(''), setFilter('all'))}
             >
-              Tampilkan semua menu
+              Hapus pencarian
             </Button>
           </Empty>
         ) : (
@@ -962,7 +962,7 @@ function CheckoutSheet({
                   ],
                   [
                     'cash',
-                    'Tunai di kasir',
+                    'Tunai',
                     'Bayar di kasir, lalu pesanan mulai dibuat',
                     'cash',
                   ],

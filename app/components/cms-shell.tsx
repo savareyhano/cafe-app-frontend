@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useNavigate, useNavigation } from "react-router";
+import { useNavigate } from "react-router";
 
 import { ROLE_LABEL } from "~/lib/format";
 import type { User } from "~/lib/types";
@@ -15,7 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { Spinner } from "~/components/ui/spinner";
 import { PageFade } from "~/components/page-fade";
 
 // Lives outside the route modules: React Router splits route files into their own chunks, so a
@@ -39,7 +38,6 @@ export function CmsPage({
   children: React.ReactNode;
 }) {
   const { user, openNav, logout } = useCms();
-  const navigation = useNavigation();
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
@@ -70,9 +68,6 @@ export function CmsPage({
             <Icon name="menu" className="size-5" />
           </Button>
           <div className="flex-1" />
-          {navigation.state === "loading" && (
-            <Spinner className="text-white" />
-          )}
           <ModeToggle onBand />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
