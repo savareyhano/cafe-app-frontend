@@ -171,11 +171,17 @@ export default function Orders({ loaderData }: Route.ComponentProps) {
       ) : view === "active" ? (
         <Board orders={shown} onMoved={onMoved} onOpen={setOpenId} />
       ) : (
-        <ul className="grid items-start gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-          {/* New orders fade in, finished ones fade out, the rest glide to their new places */}
+        // Same card as the board; only "Semua" mixes statuses, so only it shows the status pill
+        <ul className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
           <AnimatePresence initial={false}>
             {shown.map((o) => (
-              <OrderCard key={o.id} order={o} onMoved={(s) => onMoved(o.id, s)} />
+              <OrderCard
+                key={o.id}
+                order={o}
+                onMoved={(s) => onMoved(o.id, s)}
+                onOpen={() => setOpenId(o.id)}
+                showStatus={view === "all"}
+              />
             ))}
           </AnimatePresence>
         </ul>
@@ -243,7 +249,7 @@ function Board({
                 <ul className="grid gap-3">
                   <AnimatePresence initial={false}>
                     {list.map((o) => (
-                      <BoardCard key={o.id} order={o} onMoved={(s) => onMoved(o.id, s)} onOpen={() => onOpen(o.id)} />
+                      <OrderCard key={o.id} order={o} onMoved={(s) => onMoved(o.id, s)} onOpen={() => onOpen(o.id)} />
                     ))}
                   </AnimatePresence>
                 </ul>
@@ -270,13 +276,30 @@ const cardMotion = {
   transition: { layout: { duration: 0.3, ease: EASE_OUT } },
 };
 
-/** Compact board card: who, what, how much, and the one next step. The rest opens in the detail dialog. */
-function BoardCard({ order, onMoved, onOpen }: { order: Order; onMoved: (status: OrderStatus | null) => void; onOpen: () => void }) {
+const ACTIVE: OrderStatus[] = ["pending", "preparing", "ready"];
+
+/**
+ * The one order card, in every view: who, when, what, how much, and the one next step. Everything
+ * else (payment, Langsung selesai) opens in the detail dialog. Actions sit on one row when the card
+ * is wide enough; otherwise the main action takes the full width and the rest go below it.
+ */
+function OrderCard({
+  order,
+  onMoved,
+  onOpen,
+  showStatus = false,
+}: {
+  order: Order;
+  onMoved: (status: OrderStatus | null) => void;
+  onOpen: () => void;
+  showStatus?: boolean;
+}) {
   const { busy, move, setConfirm, dialogs } = useOrderActions(order, onMoved);
   const spin = <Spinner label={false} />;
+  const wide = "@min-[20rem]:flex-1";
 
   return (
-    <m.li {...cardMotion} className="relative rounded-xl bg-surface shadow-ds-1 dark:ring-1 dark:ring-border">
+    <m.li {...cardMotion} className="@container relative rounded-xl bg-surface shadow-ds-1 dark:ring-1 dark:ring-border">
       {/* The whole card opens the detail; the action row sits above this layer */}
       <button
         type="button"
@@ -284,12 +307,23 @@ function BoardCard({ order, onMoved, onOpen }: { order: Order; onMoved: (status:
         aria-label={`Detail pesanan ${order.customerName}, meja ${order.tableNumber}`}
         className="absolute inset-0 rounded-xl transition-colors duration-[120ms] hover:bg-fill-hover"
       />
-      <div className="pointer-events-none relative grid gap-2 px-4 pt-3.5">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="min-w-0 truncate type-label-m">
-            {order.customerName} · Meja {order.tableNumber}
-          </h3>
-          <span className="shrink-0 type-body-xs text-ink-faint tabular-nums">{age(order.createdAt)}</span>
+      <div className="pointer-events-none relative grid gap-2 px-4 pt-3.5 pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="grid min-w-0">
+            <h3 className="truncate type-label-m">
+              {order.customerName} · Meja {order.tableNumber}
+            </h3>
+            <p className="type-body-xs text-ink-faint tabular-nums">
+              {formatDateTime(order.createdAt)} · <span className="whitespace-nowrap">{order.invoiceNumber}</span>
+            </p>
+          </div>
+          {showStatus ? (
+            <Badge variant={STATUS_BADGE[order.status]}>{STATUS_LABEL[order.status]}</Badge>
+          ) : (
+            ACTIVE.includes(order.status) && (
+              <span className="shrink-0 type-body-xs text-ink-faint tabular-nums">{age(order.createdAt)}</span>
+            )
+          )}
         </div>
         <ul className="grid gap-0.5 type-body-s text-ink-soft">
           {order.orderItems.map((it) => (
@@ -309,15 +343,15 @@ function BoardCard({ order, onMoved, onOpen }: { order: Order; onMoved: (status:
         </ul>
         <p className="type-label-m tabular-nums">{rupiah(order.total)}</p>
       </div>
-      <div className="relative flex flex-wrap items-center gap-x-1 gap-y-2 px-4 pt-3 pb-4">
+      <div className="relative grid gap-1 px-4 pb-4 empty:hidden @min-[20rem]:flex @min-[20rem]:items-center">
         {order.status === "pending" && order.paymentMethod === "cash" && (
-          <Button size="sm" className="flex-1" onClick={() => setConfirm("pay")} disabled={!!busy}>
+          <Button size="sm" className={wide} onClick={() => setConfirm("pay")} disabled={!!busy}>
             {busy === "preparing" ? spin : <Icon name="cash" />}
             Terima pembayaran
           </Button>
         )}
         {order.status === "pending" && order.paymentMethod === "cashless" && (
-          <p className="flex-1 type-body-s text-ink-soft">Menunggu pelanggan membayar online.</p>
+          <p className={cn("type-body-s text-ink-soft", wide)}>Menunggu pelanggan membayar online.</p>
         )}
         {order.status === "pending" && (
           <Button
@@ -331,13 +365,13 @@ function BoardCard({ order, onMoved, onOpen }: { order: Order; onMoved: (status:
           </Button>
         )}
         {order.status === "preparing" && (
-          <Button size="sm" className="flex-1" onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
+          <Button size="sm" className={wide} onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
             {busy === "ready" ? spin : <Icon name="food-ready" />}
             Tandai siap
           </Button>
         )}
         {order.status === "ready" && (
-          <Button size="sm" className="flex-1" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
+          <Button size="sm" className={wide} onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
             {busy === "completed" ? spin : <Icon name="correct" />}
             Sudah diambil
           </Button>
@@ -398,22 +432,7 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
   return { busy, move, setConfirm, dialogs };
 }
 
-/** History views (Selesai, Dibatalkan, Semua) keep the full card. */
-function OrderCard({ order, onMoved }: { order: Order; onMoved: (status: OrderStatus | null) => void }) {
-  return (
-    <m.li
-      {...cardMotion}
-      className={cn(
-        "flex flex-col rounded-2xl bg-surface shadow-ds-1 dark:ring-1 dark:ring-border",
-        order.status === "ready" && "ring-2 ring-[var(--ds-status-success)] dark:ring-[var(--ds-status-success)]",
-      )}
-    >
-      <OrderDetail order={order} onMoved={onMoved} />
-    </m.li>
-  );
-}
-
-/** Everything about one order: used as the history card and inside the board's detail dialog. */
+/** Everything about one order, shown in the detail dialog when a card is clicked. */
 function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (status: OrderStatus | null) => void; inDialog?: boolean }) {
   const { busy, move, setConfirm, dialogs } = useOrderActions(order, onMoved);
   const isNew = Date.now() - new Date(order.createdAt).getTime() < 3 * 60_000 && order.status !== "completed";
@@ -472,46 +491,49 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
         <span className="type-label-l tabular-nums">{rupiah(order.total)}</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-2 px-5 pt-4 pb-5 empty:pt-0">
+      {/* Main action on its own full row, the quieter ones together below it, so nothing wraps alone */}
+      <div className="grid gap-1 px-5 pt-4 pb-5 empty:hidden">
         {order.status === "pending" && order.paymentMethod === "cash" && (
-          <Button size="sm" className="flex-1" onClick={() => setConfirm("pay")} disabled={!!busy}>
+          <Button size="sm" onClick={() => setConfirm("pay")} disabled={!!busy}>
             {busy === "preparing" ? spin : <Icon name="cash" />}
             Terima pembayaran
           </Button>
         )}
         {order.status === "pending" && order.paymentMethod === "cashless" && (
-          <p className="flex-1 type-body-s text-ink-soft">Menunggu pelanggan membayar online.</p>
-        )}
-        {order.status === "pending" && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="px-3 text-danger-ink hover:bg-danger-tint-hover"
-            onClick={() => setConfirm("cancel")}
-            disabled={!!busy}
-          >
-            Batalkan
-          </Button>
+          <p className="type-body-s text-ink-soft">Menunggu pelanggan membayar online.</p>
         )}
         {order.status === "preparing" && (
-          <>
-            <Button size="sm" className="flex-1" onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
-              {busy === "ready" ? spin : <Icon name="food-ready" />}
-              Tandai siap
-            </Button>
-            <Button size="sm" variant="ghost" className="px-3" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
-              {busy === "completed" && spin}
-              Langsung selesai
-            </Button>
-          </>
+          <Button size="sm" onClick={() => move("ready", "Pelanggan diberi tahu pesanan siap")} disabled={!!busy}>
+            {busy === "ready" ? spin : <Icon name="food-ready" />}
+            Tandai siap
+          </Button>
         )}
         {order.status === "ready" && (
-          <Button size="sm" className="flex-1" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
+          <Button size="sm" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
             {busy === "completed" ? spin : <Icon name="correct" />}
             Sudah diambil
           </Button>
         )}
-        {order.paidAt && <InvoiceButton order={order} />}
+        <div className="flex flex-wrap justify-center gap-1 empty:hidden">
+          {order.status === "pending" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="px-3 text-danger-ink hover:bg-danger-tint-hover"
+              onClick={() => setConfirm("cancel")}
+              disabled={!!busy}
+            >
+              Batalkan
+            </Button>
+          )}
+          {order.status === "preparing" && (
+            <Button size="sm" variant="ghost" className="px-3" onClick={() => move("completed", "Pesanan selesai")} disabled={!!busy}>
+              {busy === "completed" && spin}
+              Langsung selesai
+            </Button>
+          )}
+          {order.paidAt && <InvoiceButton order={order} />}
+        </div>
       </div>
 
       {dialogs}

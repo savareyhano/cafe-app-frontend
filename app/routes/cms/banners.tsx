@@ -161,20 +161,23 @@ export default function Banners({ loaderData }: Route.ComponentProps) {
                       <Switch checked={!!b.isActive} onCheckedChange={(v) => toggle(b, v)} aria-label={`Tampilkan banner ${i + 1}`} />
                       <span aria-hidden className={cn(!b.isActive && "text-ink-soft")}>{b.isActive ? "Tampil" : "Disembunyikan"}</span>
                     </label>
-                    <Button variant="ghost" size="sm" className="px-3" onClick={() => setEditing(b)} aria-label={`Ubah banner ${i + 1}`}>
-                      <Icon name="edit" />
-                      Ubah
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="px-3 text-danger-ink hover:bg-danger-tint-hover"
-                      onClick={() => setDeleting(b)}
-                      aria-label={`Hapus banner ${i + 1}`}
-                    >
-                      <Icon name="delete" />
-                      Hapus
-                    </Button>
+                    {/* Edit and delete wrap together, never one alone */}
+                    <div className="ml-auto flex gap-1">
+                      <Button variant="ghost" size="sm" className="px-3" onClick={() => setEditing(b)} aria-label={`Ubah banner ${i + 1}`}>
+                        <Icon name="edit" />
+                        Ubah
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="px-3 text-danger-ink hover:bg-danger-tint-hover"
+                        onClick={() => setDeleting(b)}
+                        aria-label={`Hapus banner ${i + 1}`}
+                      >
+                        <Icon name="delete" />
+                        Hapus
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </li>
