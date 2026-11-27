@@ -135,18 +135,15 @@ export default function Banners({ loaderData }: Route.ComponentProps) {
                   </span>
                 </div>
                 <div className="flex flex-1 flex-col gap-3 p-4">
-                  <p className={cn("truncate type-label-s", !b.menuItems && "text-ink-soft")}>
-                    {b.menuItems ? `→ ${b.menuItems.name} · ${rupiah(b.menuItems.price)}` : "Tidak ditautkan ke menu"}
-                  </p>
-                  <div className="mt-auto flex flex-wrap items-center gap-1 border-t pt-3">
-                    <label className="mr-auto flex min-h-10 cursor-pointer items-center gap-2 type-label-s">
-                      <Switch checked={!!b.isActive} onCheckedChange={(v) => toggle(b, v)} aria-label={`Tampilkan banner ${i + 1}`} />
-                      <span aria-hidden className={cn(!b.isActive && "text-ink-soft")}>{b.isActive ? "Tampil" : "Disembunyikan"}</span>
-                    </label>
+                  {/* The position picker sits with the banner's own line, so the action row below fits any card width */}
+                  <div className="flex items-center gap-3">
+                    <p className={cn("min-w-0 flex-1 truncate type-label-s", !b.menuItems && "text-ink-soft")}>
+                      {b.menuItems ? `→ ${b.menuItems.name} · ${rupiah(b.menuItems.price)}` : "Tidak ditautkan ke menu"}
+                    </p>
                     {banners.length > 1 && (
                       <NativeSelect
                         size="sm"
-                        className="w-auto"
+                        className="w-auto shrink-0"
                         aria-label={`Urutan banner ${i + 1}`}
                         value={i}
                         onChange={(e) => moveTo(i, Number(e.target.value))}
@@ -158,6 +155,12 @@ export default function Banners({ loaderData }: Route.ComponentProps) {
                         ))}
                       </NativeSelect>
                     )}
+                  </div>
+                  <div className="mt-auto flex flex-wrap items-center gap-1 border-t pt-3">
+                    <label className="mr-auto flex min-h-10 cursor-pointer items-center gap-2 type-label-s">
+                      <Switch checked={!!b.isActive} onCheckedChange={(v) => toggle(b, v)} aria-label={`Tampilkan banner ${i + 1}`} />
+                      <span aria-hidden className={cn(!b.isActive && "text-ink-soft")}>{b.isActive ? "Tampil" : "Disembunyikan"}</span>
+                    </label>
                     <Button variant="ghost" size="sm" className="px-3" onClick={() => setEditing(b)} aria-label={`Ubah banner ${i + 1}`}>
                       <Icon name="edit" />
                       Ubah
