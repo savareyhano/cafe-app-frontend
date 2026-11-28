@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { Route } from "./+types/order-part";
 import { api, ApiError, errorMessage } from "~/lib/api";
 import { CAFE_NAME } from "~/lib/config";
-import { formatTime, PAYMENT_LABEL, rupiah, STATUS_LABEL } from "~/lib/format";
+import { formatTime, PAYMENT_LABEL, paymentTypeLabel, rupiah, STATUS_LABEL } from "~/lib/format";
 import { openSnap } from "~/lib/snap";
 import { partPath, partSummary, partTitle, splitProgress } from "~/lib/split";
 import { recentOrders } from "~/lib/storage";
@@ -148,9 +148,11 @@ function PartHero({ part, order }: { part: OrderPart; order: Order }) {
         <Icon name="block" className="mt-0.5 size-5" />
         <p className="type-body-s">
           <span className="block type-label-s">Pesanan dibatalkan</span>
-          {part.paidAt
-            ? "Bagian ini sudah dibayar. Tanyakan ke kasir soal pengembalian dana."
-            : "Pesanan ini dibatalkan oleh kafe. Bagian ini tidak perlu dibayar."}
+          {!part.paidAt
+            ? "Pesanan ini dibatalkan oleh kafe. Bagian ini tidak perlu dibayar."
+            : part.refundedAt
+              ? `Dana ${rupiah(part.amount)} dikembalikan otomatis ke ${paymentTypeLabel(part.paymentType)} Anda. Waktu masuknya tergantung penyedia pembayaran.`
+              : `Kafe akan mengembalikan dana ${rupiah(part.amount)} Anda. Tanyakan ke kasir.`}
         </p>
       </div>
     );

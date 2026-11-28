@@ -3,6 +3,7 @@ export type MenuType = "food" | "drink";
 export type OrderStatus = "pending" | "preparing" | "ready" | "completed" | "cancelled";
 export type PaymentMethod = "cash" | "cashless";
 export type SplitMode = "item" | "even";
+export type ManualRefundReason = "cash" | "unsupported_method" | "refund_failed";
 
 export type Pagination = {
   totalRecords: number;
@@ -78,6 +79,14 @@ export type OrderPart = {
   redirectUrl: string | null;
   snapToken: string | null;
   snapExpiresAt: string | null;
+  /** Midtrans payment_type once paid online, e.g. "gopay", "qris", "bank_transfer" */
+  paymentType: string | null;
+  /** Midtrans can refund it automatically (paid online with a method that supports refunds) */
+  refundable: boolean;
+  /** Set once Midtrans accepted the refund of a cancelled order's part */
+  refundedAt: string | null;
+  /** Why a cancelled order's paid part must be refunded by hand */
+  manualRefundReason: ManualRefundReason | null;
   /** "Per item" mode only: which order items, and how many of each, this part pays for */
   orderPartItems: { id: string; orderItemId: string; quantity: number }[];
 };

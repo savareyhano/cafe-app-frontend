@@ -5,8 +5,8 @@ import { AnimatePresence, m } from "motion/react";
 
 import type { Route } from "./+types/orders";
 import { CmsPage, onBand } from "~/components/cms-shell";
-import { api, errorMessage, fetchAll } from "~/lib/api";
-import { formatDateTime, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
+import { api, errorMessage, fetchAll, type CancelRefunds } from "~/lib/api";
+import { formatDateTime, formatTime, PAYMENT_LABEL, paymentTypeLabel, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
 import { onAuthError, requireUser } from "~/lib/session";
 import { partName, partSummary, splitProgress } from "~/lib/split";
 import type { Order, OrderPart, OrderStatus, PaymentMethod } from "~/lib/types";
@@ -399,17 +399,16 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
   const [part, setPart] = useState<OrderPart | null>(null);
   const progress = splitProgress(order);
   const paidParts = order.orderParts.filter((p) => p.paidAt);
-  const refund = paidParts.reduce((n, p) => n + p.amount, 0);
+  const autoParts = paidParts.filter((p) => p.refundable);
+  const handParts = paidParts.filter((p) => !p.refundable);
+  const sum = (ps: OrderPart[]) => ps.reduce((n, p) => n + p.amount, 0);
 
   const move = async (status: Exclude<OrderStatus, "pending">, success: string) => {
     setBusy(status);
     try {
       const res = await api.updateOrderStatus(order.id, status);
-      toast.success(success, {
-        description: res.data?.paidPartCount
-          ? `${res.data.paidPartCount} bagian sudah dibayar · ${rupiah(res.data.refundAmount)} perlu dikembalikan`
-          : `${order.invoiceNumber} · ${order.customerName}`,
-      });
+      if (res.data?.refunds) refundToast(success, res.data);
+      else toast.success(success, { description: `${order.invoiceNumber} · ${order.customerName}` });
       onMoved(status);
     } catch (e) {
       if (!onAuthError(e, navigate)) toast.error("Status gagal diubah", { description: errorMessage(e) });
@@ -474,15 +473,27 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
         description={
           <>
             {order.invoiceNumber} atas nama {order.customerName}. Pesanan yang dibatalkan tidak bisa diaktifkan lagi.
-            {paidParts.length > 0 && (
-              <span className="mt-3 flex items-start gap-2 rounded-lg bg-danger-tint p-3 text-left text-danger-ink">
+            {autoParts.length > 0 && (
+              <span className="mt-3 flex items-start gap-2 rounded-lg bg-info-tint p-3 text-left text-info-ink">
+                <Icon name="retry" className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="type-label-s">Dikembalikan otomatis · {rupiah(sum(autoParts))}</span>
+                  <br />
+                  {autoParts.map((p) => `${partName(p)} (${paymentTypeLabel(p.paymentType)})`).join(", ")}. Midtrans
+                  mengembalikan dananya ke metode bayar masing-masing.
+                </span>
+              </span>
+            )}
+            {handParts.length > 0 && (
+              <span className="mt-2 flex items-start gap-2 rounded-lg bg-danger-tint p-3 text-left text-danger-ink">
                 <Icon name="error" className="mt-0.5 shrink-0" />
                 <span>
-                  <span className="type-label-s">
-                    {paidParts.length} bagian sudah dibayar · {rupiah(refund)} perlu dikembalikan.
-                  </span>{" "}
-                  {paidParts.map((p) => `${partName(p)} (${p.paymentMethod === "cash" ? "tunai" : "non-tunai"})`).join(", ")}.
-                  Kembalikan tunai di kasir, atau lewat dashboard Midtrans untuk pembayaran non-tunai.
+                  <span className="type-label-s">Kembalikan sendiri · {rupiah(sum(handParts))}</span>
+                  <br />
+                  {handParts
+                    .map((p) => `${partName(p)} (${p.paymentMethod === "cash" ? "tunai" : paymentTypeLabel(p.paymentType)})`)
+                    .join(", ")}
+                  . Kembalikan tunai di kasir; untuk transfer bank, lewat dashboard Midtrans atau transfer langsung.
                 </span>
               </span>
             )}
@@ -638,10 +649,37 @@ function InvoiceButton({ order, part }: { order: Order; part?: OrderPart }) {
   );
 }
 
+const MANUAL_REASON: Record<NonNullable<OrderPart["manualRefundReason"]>, string> = {
+  cash: "dibayar tunai",
+  unsupported_method: "metode tidak bisa dikembalikan otomatis",
+  refund_failed: "Midtrans menolak pengembalian",
+};
+
+/** After cancelling: one toast that says what Midtrans refunded and what staff still have to hand back. */
+function refundToast(title: string, { refunds }: CancelRefunds) {
+  const auto = refunds.automatic.reduce((n, p) => n + p.amount, 0);
+  const lines = [
+    refunds.automatic.length > 0 && `Dikembalikan otomatis: ${rupiah(auto)} (${refunds.automatic.length} bagian).`,
+    refunds.manual.length > 0 &&
+      `Kembalikan sendiri: ${refunds.manual
+        .map((p) => `${partName(p)} ${rupiah(p.amount)}${p.reason === "refund_failed" ? " (gagal otomatis)" : ""}`)
+        .join(", ")}.`,
+  ].filter(Boolean);
+  if (!lines.length) return toast.success(title);
+  (refunds.manual.length ? toast.warning : toast.success)(title, {
+    description: lines.join(" "),
+    duration: refunds.manual.length ? 15_000 : undefined,
+  });
+}
+
 /** A part's payment state in words and an icon, never by color alone. */
-function partState(p: OrderPart): { text: string; icon: "correct" | "cash" | "time-left"; tone: string } {
+function partState(p: OrderPart, order: Order): { text: string; icon: "correct" | "cash" | "time-left" | "retry" | "error" | "block"; tone: string } {
+  if (!p.paidAt && order.status === "cancelled") return { text: "Tidak perlu dibayar", icon: "block", tone: "text-ink-faint" };
+  if (p.paidAt && p.refundedAt) return { text: "Dikembalikan otomatis", icon: "retry", tone: "text-info-ink" };
+  if (p.paidAt && p.manualRefundReason)
+    return { text: `Kembalikan sendiri · ${MANUAL_REASON[p.manualRefundReason]}`, icon: "error", tone: "text-danger-ink" };
   if (p.paidAt)
-    return { text: `Lunas · ${p.paymentMethod ? PAYMENT_LABEL[p.paymentMethod] : "Dibayar"}`, icon: "correct", tone: "text-success-ink" };
+    return { text: `Lunas · ${p.paymentMethod === "cashless" ? paymentTypeLabel(p.paymentType) : p.paymentMethod ? PAYMENT_LABEL[p.paymentMethod] : "Dibayar"}`, icon: "correct", tone: "text-success-ink" };
   if (p.paymentMethod === "cash") return { text: "Bayar tunai di kasir", icon: "cash", tone: "text-info-ink" };
   if (p.paymentMethod === "cashless") return { text: "Menunggu bayar online", icon: "time-left", tone: "text-warning-ink" };
   return { text: "Belum pilih cara bayar", icon: "time-left", tone: "text-warning-ink" };
@@ -659,7 +697,7 @@ function CardParts({ order, busy, onTake }: { order: Order; busy: string | null;
       </p>
       <ul className="grid">
         {order.orderParts.map((p) => {
-          const st = partState(p);
+          const st = partState(p, order);
           const take = order.status === "pending" && !p.paidAt && p.paymentMethod !== "cashless";
           return (
             <li
@@ -705,7 +743,7 @@ function DetailParts({ order, busy, onTake }: { order: Order; busy: string | nul
       </div>
       <ul className="grid rounded-xl ring-1 ring-border">
         {order.orderParts.map((p) => {
-          const st = partState(p);
+          const st = partState(p, order);
           return (
             <li key={p.id} className="flex items-center gap-3 border-b px-3.5 py-3 last:border-b-0">
               <span className="grid min-w-0 flex-1">

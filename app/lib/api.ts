@@ -3,6 +3,7 @@ import type {
   Banner,
   DashboardData,
   MenuItem,
+  ManualRefundReason,
   Order,
   OrderPart,
   OrderStatus,
@@ -94,6 +95,16 @@ async function request<T>(
 
 type Ok<T> = { status: "success"; data: T };
 type PartView = { part: OrderPart; order: Order };
+type RefundedPart = { partId: string; no: number; name: string | null; amount: number; paymentType: string | null };
+/** What cancelling a split order did with the money already paid. */
+export type CancelRefunds = {
+  paidPartCount: number;
+  refundAmount: number;
+  refunds: {
+    automatic: RefundedPart[];
+    manual: (RefundedPart & { paymentMethod: PaymentMethod; reason: ManualRefundReason; detail: string | null })[];
+  };
+};
 
 type SplitPart = { name?: string; paymentMethod?: PaymentMethod };
 export type OrderSplit =
@@ -158,7 +169,7 @@ export const api = {
       Msg & { data: { orderId: string; invoiceNumber: string; redirectUrl: string | null; snapToken: string | null } }
     >("/api/orders", { method: "POST", json: body }),
   updateOrderStatus: (id: string, status: Exclude<OrderStatus, "pending">) =>
-    request<Msg & { data?: { paidPartCount: number; refundAmount: number } }>(`/api/orders/${id}`, {
+    request<Msg & { data?: CancelRefunds }>(`/api/orders/${id}`, {
       method: "PATCH",
       json: { status },
     }),
