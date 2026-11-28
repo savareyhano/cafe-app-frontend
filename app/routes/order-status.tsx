@@ -12,6 +12,7 @@ import { readJson, recentOrders, writeJson } from "~/lib/storage";
 import type { Order, OrderStatus } from "~/lib/types";
 import { cn } from "~/lib/utils";
 import { Icon, type IconName } from "~/components/icon";
+import { StatusScene, type StatusPose } from "~/components/cafe-scene";
 import { MenuThumb } from "~/components/menu-thumb";
 import { Frame, InfoRow, InvoiceButton, PartList, usePolling } from "~/components/order-view";
 import { RateUsDialog } from "~/components/rate-us-dialog";
@@ -67,7 +68,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
   if (!order) {
     return (
       <Frame>
-        <Empty className="mx-4 mt-4 rounded-lg bg-surface">
+        <Empty className="mx-4 mt-4 w-auto rounded-lg bg-surface">
           <EmptyHeader>
             <EmptyMedia variant="icon"><Icon name="my-orders" /></EmptyMedia>
             <EmptyTitle>{missing ? "Pesanan tidak ditemukan" : "Belum ada pesanan"}</EmptyTitle>
@@ -92,7 +93,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <Frame table={order.tableNumber}>
-      <section className="grid gap-5 bg-surface px-4 pt-6 pb-5 md:mx-4 md:rounded-2xl">
+      <section className="grid gap-5 bg-surface px-4 pt-6 pb-5 mx-4 rounded-2xl border border-line shadow-ds-1">
         <StatusHero order={order} sound={sound} />
 
         <div className="flex items-baseline justify-between gap-3">
@@ -125,7 +126,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
         )}
       </section>
 
-      <section className="grid bg-surface px-4 md:mx-4 md:rounded-2xl" aria-label="Ringkasan">
+      <section className="grid bg-surface px-4 mx-4 rounded-2xl border border-line shadow-ds-1" aria-label="Ringkasan">
         <InfoRow icon="location" title={CAFE_NAME} sub={CAFE_ADDRESS || `Meja ${order.tableNumber}`} />
         {order.splitMode ? (
           <InfoRow
@@ -155,7 +156,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
       </section>
 
       {order.splitMode && (
-        <section className="grid bg-surface px-4 pt-4 md:mx-4 md:rounded-2xl" aria-labelledby="parts-title">
+        <section className="grid mx-4 rounded-2xl border border-line bg-surface px-4 pt-4 shadow-ds-1" aria-labelledby="parts-title">
           <h2 id="parts-title" className="type-label-m">
             Bagian
           </h2>
@@ -163,7 +164,7 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
         </section>
       )}
 
-      <section className="bg-surface px-4 md:mx-4 md:rounded-2xl" aria-labelledby="items-title">
+      <section className="bg-surface px-4 mx-4 rounded-2xl border border-line shadow-ds-1" aria-labelledby="items-title">
         <h2 id="items-title" className="sr-only">Daftar item</h2>
         <ul>
           {order.orderItems.map((it) => (
@@ -210,6 +211,13 @@ const HERO: Record<OrderStatus, { icon: IconName; tone: string }> = {
   cancelled: { icon: "block", tone: "bg-danger-tint text-danger-ink" },
 };
 
+const SCENE_POSE: Record<Exclude<OrderStatus, "cancelled">, StatusPose> = {
+  pending: "waiting",
+  preparing: "brewing",
+  ready: "ready",
+  completed: "done",
+};
+
 function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof useReadySound> }) {
   const { icon, tone } = HERO[order.status];
   const pending = order.status === "pending";
@@ -218,6 +226,10 @@ function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof u
 
   return (
     <div className="grid justify-items-center gap-3 text-center" aria-live="polite">
+      {order.status !== "cancelled" ? (
+        // The barista from the sign-in café, posed for where the order is
+        <StatusScene pose={SCENE_POSE[order.status]} className="w-full max-w-[17rem] border border-line" />
+      ) : (
       <span className={cn("grid size-20 place-items-center rounded-full transition-colors duration-[240ms] ease-out", tone)}>
         {/* New status: the old icon fades out, the new one settles in from 85% */}
         <AnimatePresence mode="wait" initial={false}>
@@ -232,6 +244,7 @@ function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof u
           </m.span>
         </AnimatePresence>
       </span>
+      )}
 
       {cashPending && (
         <>

@@ -8,7 +8,7 @@ export const ICONS = [
   "dark-theme", "delete", "dish", "downloads", "downward", "edit", "error", "expand-less",
   "expand-more", "food-menu", "food-ready", "freshly-made", "group", "image", "info",
   "light-theme", "location", "logout", "menu", "minus", "next", "notes", "overflow-vertical",
-  "password", "plus", "print", "rating", "reset-password", "retry", "scan", "search", "switch",
+  "password", "plus", "print", "rating", "reset-password", "retry", "scan", "search", "split-bill", "switch",
   "time-left", "timeline-bar-chart", "transactions", "upward", "user", "volume-up", "wallet",
 ] as const;
 

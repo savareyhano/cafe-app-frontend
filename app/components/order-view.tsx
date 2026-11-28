@@ -30,7 +30,7 @@ export function Frame({ children, table, title = "Detail Pesanan" }: { children:
         {table && <Badge variant="solid">Meja {table}</Badge>}
         <ModeToggle />
       </header>
-      <main className="grid flex-1 content-start gap-3 pb-6 md:pt-4">{children}</main>
+      <main className="grid flex-1 content-start gap-3 pt-4 pb-6">{children}</main>
       <SiteFooter />
     </div>
   );

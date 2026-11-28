@@ -1,7 +1,5 @@
 import { AnimatePresence, m } from "motion/react";
-import { useLocation, useNavigation } from "react-router";
-
-import { cn } from "~/lib/utils";
+import { useNavigation } from "react-router";
 
 /**
  * Page-loading signal for the whole app: a thin line across the top while the next page's data
@@ -9,9 +7,6 @@ import { cn } from "~/lib/utils";
  */
 export function NavProgress() {
   const navigation = useNavigation();
-  const { pathname } = useLocation();
-  // The console's top bar is the dark band; everywhere else the top is a light surface
-  const onBand = pathname.startsWith("/cms") && pathname !== "/cms/masuk";
 
   return (
     <AnimatePresence>
@@ -20,10 +15,7 @@ export function NavProgress() {
           key="nav-progress"
           role="progressbar"
           aria-label="Memuat halaman"
-          className={cn(
-            "pointer-events-none fixed inset-x-0 top-0 z-[60] h-[3px] origin-left",
-            onBand ? "bg-white" : "bg-[var(--ds-selected)]",
-          )}
+          className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-[3px] origin-left bg-[var(--ds-selected)]"
           initial={{ scaleX: 0 }}
           // Waits 150 ms so instant loads never flash it
           animate={{ scaleX: 0.85, transition: { delay: 0.15, duration: 6, ease: [0.1, 0.6, 0.2, 1] } }}

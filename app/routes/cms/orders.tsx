@@ -6,13 +6,14 @@ import { AnimatePresence, m } from "motion/react";
 import type { Route } from "./+types/orders";
 import { CmsPage, onBand } from "~/components/cms-shell";
 import { api, errorMessage, fetchAll, type CancelRefunds } from "~/lib/api";
-import { formatDateTime, formatTime, PAYMENT_LABEL, paymentTypeLabel, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
+import { age, formatDateTime, formatTime, PAYMENT_LABEL, paymentTypeLabel, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
 import { onAuthError, requireUser } from "~/lib/session";
 import { partName, partSummary, splitProgress } from "~/lib/split";
 import type { Order, OrderPart, OrderStatus, PaymentMethod } from "~/lib/types";
 import { cn } from "~/lib/utils";
 import { Icon } from "~/components/icon";
 import { ConfirmDialog } from "~/components/confirm-dialog";
+import { MenuThumb } from "~/components/menu-thumb";
 import { EASE_IN, EASE_OUT } from "~/components/page-fade";
 import { Pager } from "~/components/pager";
 import { SearchInput } from "~/components/search-input";
@@ -261,12 +262,6 @@ function Board({
       </div>
     </div>
   );
-}
-
-/** Minutes since the order came in, or the clock time once it's older than an hour. */
-function age(createdAt: string) {
-  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60_000);
-  return mins < 1 ? "baru" : mins < 60 ? `${mins} mnt` : formatTime(createdAt);
 }
 
 const cardMotion = {
@@ -533,12 +528,15 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
         <Badge variant={STATUS_BADGE[order.status]}>{STATUS_LABEL[order.status]}</Badge>
       </div>
 
-      <ul className="mx-5 mt-4 grid gap-2 border-y py-3">
+      <ul className="mx-5 mt-4 grid gap-3 border-y py-4">
         {order.orderItems.map((it) => (
-          <li key={it.id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] gap-x-2 type-body-s">
-            <span className="type-label-s tabular-nums">{it.quantity}×</span>
-            <span className="min-w-0">
+          <li key={it.id} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-start gap-x-3 type-body-s">
+            <MenuThumb src={it.menuItems?.imageUrl} alt="" className="size-12 rounded-lg" />
+            <span className="grid min-w-0 gap-0.5">
               <span className="type-label-s">{it.menuItems?.name ?? "Menu dihapus"}</span>
+              <span className="type-body-xs text-ink-soft tabular-nums">
+                {it.quantity} × {rupiah(it.priceAtOrder)}
+              </span>
               {it.note && (
                 <span className="mt-0.5 flex items-start gap-1 rounded-sm bg-warning-tint px-2 py-1 type-body-xs text-warning-ink">
                   <Icon name="notes" className="mt-px" />
@@ -546,7 +544,7 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
                 </span>
               )}
             </span>
-            <span className="text-ink-soft tabular-nums">{rupiah(it.priceAtOrder * it.quantity)}</span>
+            <span className="type-label-s tabular-nums">{rupiah(it.priceAtOrder * it.quantity)}</span>
           </li>
         ))}
       </ul>

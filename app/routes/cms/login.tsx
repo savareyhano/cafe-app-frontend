@@ -7,7 +7,7 @@ import * as z from "zod";
 import { api, ApiError, errorMessage } from "~/lib/api";
 import { CAFE_NAME } from "~/lib/config";
 import { clearSession } from "~/lib/session";
-import { BrandMark } from "~/components/brand";
+import { CafeRoom } from "~/components/cafe-scene";
 import { Icon } from "~/components/icon";
 import { ModeToggle } from "~/components/mode-toggle";
 import { Button } from "~/components/ui/button";
@@ -45,27 +45,28 @@ export default function Login() {
   };
 
   return (
-    <div className="grid min-h-dvh bg-surface lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      {/* The sign-in band: a flat brand panel whose corners facing the form are rounded */}
-      <aside className="relative flex flex-col justify-between gap-10 bg-band px-6 pt-6 pb-16 text-white lg:m-0 lg:rounded-r-[2.5rem] lg:p-10">
-        <div className="flex items-center gap-3">
-          <BrandMark inverse />
-          <span className="type-label-m">{CAFE_NAME}</span>
-          <ModeToggle onBand className="ml-auto" />
-        </div>
-        <div className="grid max-w-md gap-3">
-          <h1 className="type-display-m leading-tight text-white">Konsol staf</h1>
-          <p className="type-body-m text-white/85">
-            Terima pesanan, konfirmasi pembayaran tunai, dan tandai pesanan siap diambil.
-          </p>
-        </div>
-      </aside>
+    // One café room behind the whole page, the same in light and dark mode. color-scheme light makes
+    // the form's tokens resolve to their light values on the cream room in either mode.
+    <div className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-[#F4EEDF] text-[#202020] [color-scheme:light]">
+      <CafeRoom className="absolute inset-0 -z-10" />
 
-      <main className="relative -mt-8 grid place-items-start rounded-t-2xl bg-surface px-6 pt-10 pb-12 lg:mt-0 lg:place-items-center lg:rounded-none">
-        <form onSubmit={form.handleSubmit(onSubmit)} className="grid w-full max-w-sm gap-6" noValidate>
-          <div className="grid gap-1">
-            <h2 className="type-heading-s">Masuk</h2>
-            <p className="type-body-s text-ink-soft">Gunakan akun yang diberikan admin kafe.</p>
+      {/* The café's name hangs on the sign over the bar, so the header only holds the theme toggle */}
+      <header className="flex justify-end px-5 pt-5 lg:px-10 lg:pt-8">
+        <ModeToggle className="rounded-full bg-[#FBF7EC]/90 backdrop-blur-sm" />
+      </header>
+
+      {/* Phones: the card sits high so the queue and counter show below it. Wide screens: floating on the right, clear of the bar. */}
+      <main className="flex flex-1 items-start justify-center px-4 pt-4 pb-10 lg:items-center lg:justify-end lg:px-16 xl:pr-28">
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="grid w-full max-w-md gap-5 rounded-[1.75rem] border border-white/70 bg-[#FBF7EC]/80 p-5 shadow-[0_24px_60px_-28px_#2F4A2E80] backdrop-blur-md sm:gap-6 sm:p-9"
+          noValidate
+        >
+          <div className="grid gap-1.5">
+            <h1 className="type-display-s text-[#2F4A2E]">Konsol staf</h1>
+            <p className="type-body-s text-ink-soft">
+              Terima pesanan, konfirmasi pembayaran tunai, dan tandai pesanan siap diambil. Masuk dengan akun dari admin kafe.
+            </p>
           </div>
 
           {error && (

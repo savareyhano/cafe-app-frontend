@@ -13,6 +13,12 @@ export const formatTime = (iso: string) => timeOnly.format(new Date(iso));
 /** The one date-time style everywhere: 24 Nov 2026, 10.09 */
 export const formatDateTime = (iso: string) => `${formatDate(iso)}, ${formatTime(iso)}`;
 
+/** Minutes since the order came in, or the clock time once it's older than an hour. */
+export function age(createdAt: string) {
+  const mins = Math.floor((Date.now() - new Date(createdAt).getTime()) / 60_000);
+  return mins < 1 ? "baru" : mins < 60 ? `${mins} mnt` : formatTime(createdAt);
+}
+
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "Belum bayar",
   preparing: "Disiapkan",
