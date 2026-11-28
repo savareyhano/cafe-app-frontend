@@ -8,7 +8,8 @@ import { CmsPage, onBand } from "~/components/cms-shell";
 import { api, errorMessage, fetchAll } from "~/lib/api";
 import { formatDateTime, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
 import { onAuthError, requireUser } from "~/lib/session";
-import type { Order, OrderStatus, PaymentMethod } from "~/lib/types";
+import { partName, partSummary, splitProgress } from "~/lib/split";
+import type { Order, OrderPart, OrderStatus, PaymentMethod } from "~/lib/types";
 import { cn } from "~/lib/utils";
 import { Icon } from "~/components/icon";
 import { ConfirmDialog } from "~/components/confirm-dialog";
@@ -294,9 +295,10 @@ function OrderCard({
   onOpen: () => void;
   showStatus?: boolean;
 }) {
-  const { busy, move, setConfirm, dialogs } = useOrderActions(order, onMoved);
+  const { busy, move, setConfirm, setPart, dialogs } = useOrderActions(order, onMoved);
   const spin = <Spinner label={false} />;
   const wide = "@min-[20rem]:flex-1";
+  const progress = splitProgress(order);
 
   return (
     <m.li {...cardMotion} className="@container relative rounded-xl bg-surface shadow-ds-1 dark:ring-1 dark:ring-border">
@@ -342,15 +344,21 @@ function OrderCard({
           ))}
         </ul>
         <p className="type-label-m tabular-nums">{rupiah(order.total)}</p>
+        {order.splitMode && <CardParts order={order} busy={busy} onTake={setPart} />}
       </div>
       <div className="relative grid gap-1 px-4 pb-4 empty:hidden @min-[20rem]:flex @min-[20rem]:items-center">
-        {order.status === "pending" && order.paymentMethod === "cash" && (
+        {order.status === "pending" && order.splitMode && (
+          <p className={cn("type-body-s text-ink-soft tabular-nums", wide)}>
+            {progress.paid} dari {progress.count} lunas · sisa <span className="type-label-s text-ink">{rupiah(progress.left)}</span>
+          </p>
+        )}
+        {order.status === "pending" && !order.splitMode && order.paymentMethod === "cash" && (
           <Button size="sm" className={wide} onClick={() => setConfirm("pay")} disabled={!!busy}>
             {busy === "preparing" ? spin : <Icon name="cash" />}
             Terima pembayaran
           </Button>
         )}
-        {order.status === "pending" && order.paymentMethod === "cashless" && (
+        {order.status === "pending" && !order.splitMode && order.paymentMethod === "cashless" && (
           <p className={cn("type-body-s text-ink-soft", wide)}>Menunggu pelanggan membayar online.</p>
         )}
         {order.status === "pending" && (
@@ -376,7 +384,7 @@ function OrderCard({
             Sudah diambil
           </Button>
         )}
-        {order.paidAt && <InvoiceButton order={order} />}
+        {order.paidAt && !order.splitMode && <InvoiceButton order={order} />}
       </div>
       {dialogs}
     </m.li>
@@ -386,14 +394,22 @@ function OrderCard({
 /** Status changes, their toasts and the pay/cancel confirmations, shared by the board card and the full card. */
 function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => void) {
   const navigate = useNavigate();
-  const [busy, setBusy] = useState<OrderStatus | null>(null);
+  const [busy, setBusy] = useState<OrderStatus | "part" | null>(null);
   const [confirm, setConfirm] = useState<"pay" | "cancel" | null>(null);
+  const [part, setPart] = useState<OrderPart | null>(null);
+  const progress = splitProgress(order);
+  const paidParts = order.orderParts.filter((p) => p.paidAt);
+  const refund = paidParts.reduce((n, p) => n + p.amount, 0);
 
   const move = async (status: Exclude<OrderStatus, "pending">, success: string) => {
     setBusy(status);
     try {
-      await api.updateOrderStatus(order.id, status);
-      toast.success(success, { description: `${order.invoiceNumber} · ${order.customerName}` });
+      const res = await api.updateOrderStatus(order.id, status);
+      toast.success(success, {
+        description: res.data?.paidPartCount
+          ? `${res.data.paidPartCount} bagian sudah dibayar · ${rupiah(res.data.refundAmount)} perlu dikembalikan`
+          : `${order.invoiceNumber} · ${order.customerName}`,
+      });
       onMoved(status);
     } catch (e) {
       if (!onAuthError(e, navigate)) toast.error("Status gagal diubah", { description: errorMessage(e) });
@@ -404,8 +420,44 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
     }
   };
 
+  // Cash for one part of a split order; the last one sends the order to the kitchen
+  const takePart = async (p: OrderPart) => {
+    const last = progress.paid + 1 === progress.count;
+    setBusy("part");
+    try {
+      await api.markPartPaid(p.id);
+      toast.success(last ? "Semua bagian lunas, pesanan disiapkan" : `Pembayaran ${partName(p)} diterima`, {
+        description: `${progress.paid + 1} dari ${progress.count} lunas · ${order.invoiceNumber}`,
+      });
+      onMoved(last ? "preparing" : null);
+    } catch (e) {
+      if (!onAuthError(e, navigate)) toast.error("Pembayaran gagal dicatat", { description: errorMessage(e) });
+      onMoved(null);
+    } finally {
+      setBusy(null);
+      setPart(null);
+    }
+  };
+
   const dialogs = (
     <>
+      <ConfirmDialog
+        open={!!part}
+        onOpenChange={(o) => !o && setPart(null)}
+        title={part ? `Terima tunai dari ${partName(part)}?` : ""}
+        description={
+          part &&
+          `Bagian ${part.no} dari ${progress.count} · ${part.invoiceNumber} · ${rupiah(part.amount)}. ${
+            progress.paid + 1 === progress.count
+              ? "Ini bagian terakhir, jadi pesanan langsung masuk ke dapur."
+              : `Pesanan mulai dibuat setelah semua bagian lunas. Masih ada ${progress.count - progress.paid - 1} bagian lagi setelah ini.`
+          }`
+        }
+        confirmLabel={part ? `Terima ${rupiah(part.amount)}` : ""}
+        cancelLabel="Kembali"
+        busy={busy === "part"}
+        onConfirm={() => part && takePart(part)}
+      />
       <ConfirmDialog
         open={confirm === "pay"}
         onOpenChange={(o) => !o && setConfirm(null)}
@@ -419,7 +471,23 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
         open={confirm === "cancel"}
         onOpenChange={(o) => !o && setConfirm(null)}
         title="Batalkan pesanan ini?"
-        description={`${order.invoiceNumber} atas nama ${order.customerName}. Pesanan yang dibatalkan tidak bisa diaktifkan lagi.`}
+        description={
+          <>
+            {order.invoiceNumber} atas nama {order.customerName}. Pesanan yang dibatalkan tidak bisa diaktifkan lagi.
+            {paidParts.length > 0 && (
+              <span className="mt-3 flex items-start gap-2 rounded-lg bg-danger-tint p-3 text-left text-danger-ink">
+                <Icon name="error" className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="type-label-s">
+                    {paidParts.length} bagian sudah dibayar · {rupiah(refund)} perlu dikembalikan.
+                  </span>{" "}
+                  {paidParts.map((p) => `${partName(p)} (${p.paymentMethod === "cash" ? "tunai" : "non-tunai"})`).join(", ")}.
+                  Kembalikan tunai di kasir, atau lewat dashboard Midtrans untuk pembayaran non-tunai.
+                </span>
+              </span>
+            )}
+          </>
+        }
         confirmLabel="Batalkan pesanan"
         cancelLabel="Jangan batalkan"
         destructive
@@ -429,12 +497,12 @@ function useOrderActions(order: Order, onMoved: (status: OrderStatus | null) => 
     </>
   );
 
-  return { busy, move, setConfirm, dialogs };
+  return { busy, move, setConfirm, setPart, dialogs };
 }
 
 /** Everything about one order, shown in the detail dialog when a card is clicked. */
 function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (status: OrderStatus | null) => void; inDialog?: boolean }) {
-  const { busy, move, setConfirm, dialogs } = useOrderActions(order, onMoved);
+  const { busy, move, setConfirm, setPart, dialogs } = useOrderActions(order, onMoved);
   const isNew = Date.now() - new Date(order.createdAt).getTime() < 3 * 60_000 && order.status !== "completed";
   const spin = <Spinner label={false} />;
 
@@ -472,7 +540,9 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
         ))}
       </ul>
 
-      <div className="flex items-center justify-between gap-3 px-5 pt-3">
+      {order.splitMode && <DetailParts order={order} busy={busy} onTake={setPart} />}
+
+      <div className={cn("flex items-center justify-between gap-3 px-5 pt-3", order.splitMode && "hidden")}>
         <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 type-body-s text-ink-soft">
           {PAYMENT_LABEL[order.paymentMethod]}
           {order.paidAt ? (
@@ -493,13 +563,13 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
 
       {/* Main action on its own full row, the quieter ones together below it, so nothing wraps alone */}
       <div className="grid gap-1 px-5 pt-4 pb-5 empty:hidden">
-        {order.status === "pending" && order.paymentMethod === "cash" && (
+        {order.status === "pending" && !order.splitMode && order.paymentMethod === "cash" && (
           <Button size="sm" onClick={() => setConfirm("pay")} disabled={!!busy}>
             {busy === "preparing" ? spin : <Icon name="cash" />}
             Terima pembayaran
           </Button>
         )}
-        {order.status === "pending" && order.paymentMethod === "cashless" && (
+        {order.status === "pending" && !order.splitMode && order.paymentMethod === "cashless" && (
           <p className="type-body-s text-ink-soft">Menunggu pelanggan membayar online.</p>
         )}
         {order.status === "preparing" && (
@@ -532,7 +602,7 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
               Langsung selesai
             </Button>
           )}
-          {order.paidAt && <InvoiceButton order={order} />}
+          {order.paidAt && !order.splitMode && <InvoiceButton order={order} />}
         </div>
       </div>
 
@@ -542,19 +612,19 @@ function OrderDetail({ order, onMoved, inDialog }: { order: Order; onMoved: (sta
 }
 
 /** A quiet text button: the download icon alone wasn't clear enough. */
-function InvoiceButton({ order }: { order: Order }) {
+function InvoiceButton({ order, part }: { order: Order; part?: OrderPart }) {
   const [busy, setBusy] = useState(false);
   return (
     <Button
       variant="ghost"
       size="sm"
       className="px-3"
-      aria-label={`Unduh invoice ${order.invoiceNumber}`}
+      aria-label={`Unduh invoice ${part?.invoiceNumber ?? order.invoiceNumber}`}
       disabled={busy}
       onClick={async () => {
         setBusy(true);
         try {
-          await (await import("~/lib/invoice")).downloadInvoice(order);
+          await (await import("~/lib/invoice")).downloadInvoice(order, part);
         } catch (e) {
           toast.error("Invoice gagal diunduh", { description: errorMessage(e) });
         } finally {
@@ -563,7 +633,116 @@ function InvoiceButton({ order }: { order: Order }) {
       }}
     >
       {busy ? <Spinner label={false} /> : <Icon name="downloads" />}
-      Unduh invoice
+      {part ? "Invoice" : "Unduh invoice"}
     </Button>
   );
 }
+
+/** A part's payment state in words and an icon, never by color alone. */
+function partState(p: OrderPart): { text: string; icon: "correct" | "cash" | "time-left"; tone: string } {
+  if (p.paidAt)
+    return { text: `Lunas · ${p.paymentMethod ? PAYMENT_LABEL[p.paymentMethod] : "Dibayar"}`, icon: "correct", tone: "text-success-ink" };
+  if (p.paymentMethod === "cash") return { text: "Bayar tunai di kasir", icon: "cash", tone: "text-info-ink" };
+  if (p.paymentMethod === "cashless") return { text: "Menunggu bayar online", icon: "time-left", tone: "text-warning-ink" };
+  return { text: "Belum pilih cara bayar", icon: "time-left", tone: "text-warning-ink" };
+}
+
+/**
+ * Who pays what on the card: each person's amount and state, the items they cover, and a full-width
+ * "Terima" for anyone paying cash at the counter, so the cashier never has to open the dialog for it.
+ */
+function CardParts({ order, busy, onTake }: { order: Order; busy: string | null; onTake: (p: OrderPart) => void }) {
+  return (
+    <div className="mt-1 grid border-t pt-2">
+      <p className="type-label-xs text-ink-soft">
+        {order.splitMode === "even" ? `Dibagi rata ${order.orderParts.length}` : `Pisah ${order.orderParts.length} bagian`}
+      </p>
+      <ul className="grid">
+        {order.orderParts.map((p) => {
+          const st = partState(p);
+          const take = order.status === "pending" && !p.paidAt && p.paymentMethod !== "cashless";
+          return (
+            <li
+              key={p.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-t py-2 first:border-t-0 first:pt-1 last:pb-0"
+            >
+              <span className="truncate type-label-s">{partName(p)}</span>
+              <span className="type-label-s tabular-nums">{rupiah(p.amount)}</span>
+              <span className={cn("col-span-2 flex items-center gap-1 type-label-xs", st.tone)}>
+                <Icon name={st.icon} className="size-3.5" />
+                {st.text}
+              </span>
+              {order.splitMode === "item" && <span className="col-span-2 type-body-xs text-ink-faint">{partSummary(order, p)}</span>}
+              {take && (
+                <Button
+                  size="sm"
+                  className="pointer-events-auto relative col-span-2 mt-1.5"
+                  onClick={() => onTake(p)}
+                  disabled={!!busy}
+                >
+                  <Icon name="cash" />
+                  Terima {rupiah(p.amount)}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** The detail dialog's payment section for a split order: every part with its invoice number and its action. */
+function DetailParts({ order, busy, onTake }: { order: Order; busy: string | null; onTake: (p: OrderPart) => void }) {
+  const progress = splitProgress(order);
+  return (
+    <section className="grid gap-2 px-5 pt-3" aria-label="Pembayaran per bagian">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="type-label-s">
+          Pembayaran · {order.splitMode === "even" ? `Dibagi rata ${progress.count}` : `Pisah ${progress.count} bagian`}
+        </h3>
+        <span className="type-label-l tabular-nums">{rupiah(order.total)}</span>
+      </div>
+      <ul className="grid rounded-xl ring-1 ring-border">
+        {order.orderParts.map((p) => {
+          const st = partState(p);
+          return (
+            <li key={p.id} className="flex items-center gap-3 border-b px-3.5 py-3 last:border-b-0">
+              <span className="grid min-w-0 flex-1">
+                <span className="truncate type-label-s">{partName(p)}</span>
+                <span className={cn("flex items-center gap-1 type-body-xs", st.tone)}>
+                  <Icon name={st.icon} className="size-3.5" />
+                  {p.paidAt ? `${st.text} · ${formatTime(p.paidAt)}` : st.text}
+                </span>
+                <span className="type-body-xs text-ink-faint tabular-nums">{p.invoiceNumber}</span>
+              </span>
+              <span className="type-label-s tabular-nums">{rupiah(p.amount)}</span>
+              {p.paidAt ? (
+                <InvoiceButton order={order} part={p} />
+              ) : (
+                order.status === "pending" && (
+                  <Button
+                    size="sm"
+                    variant={p.paymentMethod === "cashless" ? "outline" : "default"}
+                    onClick={() => onTake(p)}
+                    disabled={!!busy}
+                  >
+                    <Icon name="cash" />
+                    Terima
+                  </Button>
+                )
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {order.status === "pending" && (
+        <p className="type-body-xs text-ink-soft tabular-nums">
+          {progress.paid} dari {progress.count} lunas · sisa {rupiah(progress.left)}. Pesanan masuk ke dapur setelah semua
+          bagian lunas.
+        </p>
+      )}
+    </section>
+  );
+}
+
