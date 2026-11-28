@@ -38,6 +38,16 @@ function loadSnap(): Promise<Snap> {
   return loading;
 }
 
+/**
+ * A closing dialog or sheet keeps `pointer-events: none` on <body> until its exit animation ends.
+ * Snap's iframe lives in <body>, so opening it before then leaves it unclickable. Waits up to 1 s.
+ */
+async function pageUnlocked() {
+  for (let i = 0; i < 20 && document.body.style.pointerEvents === "none"; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 const RETURN_KEY = "pay-return";
 
 /**
@@ -77,6 +87,7 @@ export async function openSnap(
   try {
     if (!token) throw new Error("No Snap token");
     const snap = await loadSnap();
+    await pageUnlocked();
     return await new Promise((resolve) => {
       try {
         snap.pay(token, {

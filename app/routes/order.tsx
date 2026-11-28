@@ -937,6 +937,8 @@ function CheckoutSheet({
       const to = `/pesanan?order_id=${data.orderId}`;
       if (payment === 'cashless' && (data.snapToken || data.redirectUrl)) {
         setBusy('redirecting');
+        // The open sheet traps focus and clicks, which would leave the Midtrans popup unusable
+        onOpenChange(false);
         const result = await openSnap(data.snapToken, data.redirectUrl, to);
         if (result === 'redirected') return;
         // The webhook may still be on its way; ask Midtrans so the next page is already up to date
