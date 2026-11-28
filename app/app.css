@@ -48,6 +48,8 @@
 @theme inline {
   --font-sans: var(--ds-font-text);
   --font-mono: var(--ds-font-code);
+  /* The café's name only, like the sign over the bar; everything else stays in the text face */
+  --font-brand: "Fraunces", Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

@@ -8,13 +8,15 @@ export function Stepper({
   onChange,
   name,
   min = 0,
+  max = MAX_QTY,
 }: {
   value: number;
   onChange: (n: number) => void;
   name: string;
   min?: number;
+  max?: number;
 }) {
-  const willRemove = min === 0 && value <= 1;
+  const willRemove = min === 0 && value === 1; // at 0 (split bill) a plain, disabled minus
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-line-brand bg-surface p-0.5">
       <Button
@@ -38,8 +40,8 @@ export function Stepper({
         type="button"
         variant="ghost"
         size="icon-xs"
-        onClick={() => onChange(Math.min(MAX_QTY, value + 1))}
-        disabled={value >= MAX_QTY}
+        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={value >= max}
         aria-label={`Tambah ${name}`}
       >
         <Icon name="plus" />

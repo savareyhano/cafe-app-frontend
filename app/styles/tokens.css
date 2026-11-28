@@ -19,14 +19,16 @@
 :root {
   color-scheme: light dark;
 
-  --ds-bg-surface: light-dark(#FFFFFF, #1C1D1D);
-  --ds-bg-subtle: light-dark(#FAFAFA, #161717);
-  --ds-bg-muted: light-dark(#E8E8E8, #2B2C2C);
+  /* The café palette: ivory cards on a warm cream room (light), and the same room after dark,
+     a warm green-charcoal (dark). Matches the sign-in illustration. */
+  --ds-bg-surface: light-dark(#FFFDF8, #1D211C);
+  --ds-bg-subtle: light-dark(#F7F3EA, #151912);
+  --ds-bg-muted: light-dark(#ECE6D8, #2A3027);
   --ds-bg-brand: light-dark(#25282A, #D9D9D6);
   --ds-bg-inverse: light-dark(#1C1D1D, #EDEDED);
-  --ds-bg-canvas: light-dark(#FFFFFF, #111212);
-  --ds-line-strong: light-dark(#BDBDBD, #4A4B4B);
-  --ds-line: light-dark(#E8E8E8, #2E2F2F);
+  --ds-bg-canvas: light-dark(#FFFDF8, #121510);
+  --ds-line-strong: light-dark(#CFC6B2, #4A5246);
+  --ds-line: light-dark(#E8E1D1, #2E352B);
   --ds-line-brand: light-dark(#25282A, #A7A8A9);
 
   --ds-status-danger: #EA001F;
@@ -43,19 +45,21 @@
   --ds-control-invalid: light-dark(#EA001F, #FF7A7A);
   --ds-control-line-press: light-dark(#1C1D1D, #EDEDED);
   --ds-control-disabled: light-dark(#E8E8E8, #2E2F2F);
-  --ds-control-accent: light-dark(#25282A, #D9D9D6);
+  --ds-control-accent: light-dark(#2E6B12, #B5E07A);
   --ds-fill-disabled: light-dark(#EFEFEF, #262727);
 
-  --ds-fill-surface: light-dark(#FFFFFF, #1C1D1D);
-  --ds-fill-surface-hover: light-dark(#F2F2F2, #262727);
-  --ds-fill-surface-press: light-dark(#E6E6E6, #303131);
-  --ds-fill-subtle: light-dark(#FAFAFA, #232424);
-  --ds-fill-subtle-hover: light-dark(#EEEEEE, #2B2C2C);
-  --ds-fill-subtle-press: light-dark(#E1E1E1, #353636);
+  --ds-fill-surface: light-dark(#FFFDF8, #1D211C);
+  --ds-fill-surface-hover: light-dark(#F3EEE2, #262C24);
+  --ds-fill-surface-press: light-dark(#E9E2D2, #30372D);
+  --ds-fill-subtle: light-dark(#F7F3EA, #232922);
+  --ds-fill-subtle-hover: light-dark(#EEE8DA, #2A3027);
+  --ds-fill-subtle-press: light-dark(#E3DBC9, #343B31);
 
-  --ds-fill-brand: light-dark(#25282A, #D9D9D6);
-  --ds-fill-brand-hover: light-dark(#3A3D40, #EDEDEB);
-  --ds-fill-brand-press: light-dark(#101820, #BBBCBC);
+  /* Green accent: main buttons and selected choices. Light: white text on deep green (6.5:1);
+     dark: dark text on lime (10.7:1). */
+  --ds-fill-brand: light-dark(#2E6B12, #B5E07A);
+  --ds-fill-brand-hover: light-dark(#3A7D1C, #C6EA94);
+  --ds-fill-brand-press: light-dark(#245510, #9FCB62);
   --ds-fill-brand-tint: light-dark(#F1F1F0, #2B2E30);
   --ds-fill-brand-tint-hover: light-dark(#E6E6E3, #35383B);
   --ds-fill-brand-tint-press: light-dark(#D9D9D6, #404346);
@@ -67,9 +71,9 @@
   --ds-fill-inverse-tint-hover: light-dark(#F9F9F9, #353636);
   --ds-fill-inverse-tint-press: light-dark(#D5D5D5, #3F4040);
 
-  --ds-selected: light-dark(#25282A, #D9D9D6);
-  --ds-selected-hover: light-dark(#3A3D40, #EDEDEB);
-  --ds-selected-press: light-dark(#101820, #BBBCBC);
+  --ds-selected: light-dark(#2E6B12, #B5E07A);
+  --ds-selected-hover: light-dark(#3A7D1C, #C6EA94);
+  --ds-selected-press: light-dark(#245510, #9FCB62);
   --ds-highlight: light-dark(#F1F1F0, #2B2E30);
   --ds-highlight-neutral: light-dark(#EDEDED, #2B2C2C);
 
@@ -114,7 +118,7 @@
   --ds-ink-success: light-dark(#00700B, #4CC458);
   --ds-check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 7.4 5.6 10.4 11.5 3.8' fill='none' stroke='%23FFFFFF' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --ds-dash-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7h8' fill='none' stroke='%23FFFFFF' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
-  --ds-ink-on-brand: light-dark(#FFFFFF, #25282A);
+  --ds-ink-on-brand: light-dark(#FFFFFF, #1A2410);
   --ds-ink-on-inverse: light-dark(#FFFFFF, #1C1D1D);
   --ds-ink-on-status: #FFFFFF;
   --ds-ink-logo: light-dark(#1C1D1D, #EDEDED);
@@ -231,10 +235,11 @@
   --ds-control-m: 3rem;
   --ds-control-l: 3.5rem;
 
-  --ds-field-border: light-dark(#8F8F8F, #7A7B7B);
+  --ds-field-border: light-dark(#9A917F, #7C8576);
 
-  --ds-shell-band: light-dark(#25282A, #303336);
-  --ds-shell-band-pill: light-dark(#101820, #25282A);
+  /* The console's dark frame (sidebar): the café's deep forest green */
+  --ds-shell-band: light-dark(#22301F, #1F2A1D);
+  --ds-shell-band-pill: light-dark(#17211A, #18211A);
   --ds-shell-on-band: #FFFFFF;
 
   --ds-series-brand: light-dark(#25282A, #D0D0CE);

@@ -2,19 +2,20 @@ import { useRef, useState } from "react";
 import { Link, useRevalidator, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/dashboard";
-import { CmsPage, onBand } from "~/components/cms-shell";
+import { CmsPage } from "~/components/cms-shell";
 import { api } from "~/lib/api";
-import { formatDateTime, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL, TYPE_LABEL } from "~/lib/format";
+import { age, formatTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL, TYPE_LABEL } from "~/lib/format";
 import { ADMIN, requireUser } from "~/lib/session";
-import type { DashboardData, OrderStatus } from "~/lib/types";
+import type { DashboardData } from "~/lib/types";
 import { cn } from "~/lib/utils";
-import { Icon } from "~/components/icon";
+import { Icon, type IconName } from "~/components/icon";
 import { MenuThumb } from "~/components/menu-thumb";
 import { Segmented } from "~/components/segmented";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "~/components/ui/table";
 
 type Range = "today" | "7d" | "30d" | "custom";
 
@@ -25,8 +26,12 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const end = sp.get("sampai") ?? "";
   const custom = !!(start && end);
   const range = (custom ? "custom" : (sp.get("rentang") ?? "30d")) as Range;
-  const data = await api.dashboard(custom ? { startDate: start, endDate: end } : { range });
-  return { data, range, fetchedAt: Date.now() };
+  const [data, active] = await Promise.all([
+    api.dashboard(custom ? { startDate: start, endDate: end } : { range }),
+    // Live queue right now, whatever period is picked: oldest first, like the kitchen board
+    api.orders({ status: "pending,preparing,ready", page: 1, perPage: 6, sortBy: "createdAt", sortOrder: "asc" }),
+  ]);
+  return { data, active: active.data, activeCount: active.pagination.totalRecords, range, fetchedAt: Date.now() };
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -38,7 +43,7 @@ const bucketLabel = (key: string) => {
 };
 
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
-  const { data, range, fetchedAt } = loaderData;
+  const { data, active, activeCount, range, fetchedAt } = loaderData;
   const [, setSp] = useSearchParams();
   const revalidator = useRevalidator();
   const [showCustom, setShowCustom] = useState(range === "custom");
@@ -59,7 +64,7 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
       title="Dasbor"
       lead={`Hanya pesanan yang sudah dibayar yang dihitung · diperbarui ${formatTime(new Date(fetchedAt).toISOString())}`}
       actions={
-        <Button className={onBand} size="sm" onClick={() => revalidator.revalidate()} disabled={refreshing}>
+        <Button variant="outline" size="sm" onClick={() => revalidator.revalidate()} disabled={refreshing}>
           <Icon name="retry" className={cn(refreshing && "animate-spin")} />
           Muat ulang
         </Button>
@@ -92,49 +97,79 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Metric label="Pendapatan" value={rupiah(s.totalRevenue)} />
-        <Metric label="Pesanan dibayar / masuk" value={`${s.paidOrders} / ${s.totalOrders}`} />
-        <Metric label="Rata-rata per pesanan" value={rupiah(s.averageOrderValue)} />
+      <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+        <Stat
+          icon="wallet"
+          label="Pendapatan"
+          value={rupiah(s.totalRevenue)}
+          change={s.previousPeriod.revenueChangePercent}
+          trend={data.revenueChart.map((p) => p.revenue)}
+        />
+        <Stat
+          icon="my-orders"
+          label={`Pesanan dibayar · ${s.totalOrders} masuk`}
+          value={String(s.paidOrders)}
+          change={s.previousPeriod.ordersChangePercent}
+          trend={data.revenueChart.map((p) => p.ordersCount)}
+        />
+        <Stat icon="transactions" label="Rata-rata per pesanan" value={rupiah(s.averageOrderValue)} />
+        <Stat icon="time-left" label="Pesanan aktif sekarang" value={String(activeCount)} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Card>
-          <CardHeader>
-            <CardTitle>Pendapatan per {data.period.granularity === "hour" ? "jam" : "hari"}</CardTitle>
+          <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Pesanan aktif</CardTitle>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/cms/pesanan" prefetch="intent">
+                Lihat semua
+                <Icon name="next" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent>
-            <RevenueChart points={data.revenueChart} period={`${data.period.startDate}/${data.period.endDate}`} />
+            {active.length === 0 ? (
+              <EmptyLine text="Tidak ada pesanan yang sedang diproses." />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Meja</TableHead>
+                    <TableHead>Pesanan</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Masuk</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {active.map((o) => (
+                    <TableRow key={o.id}>
+                      <TableCell className="type-label-s whitespace-nowrap">Meja {o.tableNumber}</TableCell>
+                      <TableCell>
+                        <span className="grid min-w-40">
+                          <span className="type-label-s">{o.customerName}</span>
+                          <span className="line-clamp-1 text-ink-soft">
+                            {o.orderItems.map((it) => it.menuItems?.name ?? "Menu dihapus").join(", ")}
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right type-label-s whitespace-nowrap tabular-nums">{rupiah(o.total)}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_BADGE[o.status]}>{STATUS_LABEL[o.status]}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap text-ink-soft tabular-nums">{age(o.createdAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Status pesanan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="grid">
-              {(["pending", "preparing", "ready", "completed", "cancelled"] as OrderStatus[]).map((st) => (
-                <li key={st} className="flex items-center justify-between border-b py-2.5 last:border-b-0">
-                  <Badge variant={STATUS_BADGE[st]}>{STATUS_LABEL[st]}</Badge>
-                  <span className="type-label-m tabular-nums">{data.ordersByStatus[st] ?? 0}</span>
-                </li>
-              ))}
-            </ul>
-            <Button asChild variant="outline" size="sm" className="mt-4 w-full">
-              <Link to="/cms/pesanan" prefetch="intent">
-                Buka antrean pesanan
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <Card className="xl:col-span-1">
-          <CardHeader>
-            <CardTitle>Menu terlaris</CardTitle>
-            <CardDescription>Berdasarkan jumlah terjual</CardDescription>
+            <CardTitle>Menu populer</CardTitle>
+            <CardDescription>Berdasarkan jumlah terjual di periode ini</CardDescription>
           </CardHeader>
           <CardContent>
             {data.topMenuItems.length === 0 ? (
@@ -144,16 +179,28 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
                 {data.topMenuItems.map((m, i) => (
                   <li key={m.id} className="flex items-center gap-3">
                     <span className="w-4 type-label-s text-ink-faint tabular-nums">{i + 1}</span>
-                    <MenuThumb src={m.imageUrl} type={m.type} alt="" className="size-10 rounded-md" />
+                    <MenuThumb src={m.imageUrl} type={m.type} alt="" className="size-14 rounded-xl" />
                     <span className="grid min-w-0 flex-1">
                       <span className="truncate type-label-s">{m.name}</span>
-                      <span className="type-body-xs text-ink-soft tabular-nums">{rupiah(m.revenue)}</span>
+                      <span className="type-body-xs text-ink-soft tabular-nums">
+                        {m.quantitySold} terjual · {rupiah(m.revenue)}
+                      </span>
                     </span>
-                    <span className="type-label-s tabular-nums">{m.quantitySold}×</span>
                   </li>
                 ))}
               </ol>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pendapatan per {data.period.granularity === "hour" ? "jam" : "hari"}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart points={data.revenueChart} period={`${data.period.startDate}/${data.period.endDate}`} />
           </CardContent>
         </Card>
 
@@ -181,49 +228,58 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="lg:col-span-2 xl:col-span-1">
-          <CardHeader>
-            <CardTitle>Pesanan terbaru</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.recentOrders.length === 0 ? (
-              <EmptyLine text="Belum ada pesanan di periode ini." />
-            ) : (
-              <ul className="grid">
-                {data.recentOrders.map((o) => (
-                  <li key={o.id} className="flex items-center gap-3 border-b py-2.5 last:border-b-0">
-                    <span className="grid min-w-0 flex-1">
-                      <span className="truncate type-label-s">
-                        {o.customerName} · Meja {o.tableNumber}
-                      </span>
-                      <span className="truncate type-body-xs text-ink-soft tabular-nums">
-                        {o.invoiceNumber} · {formatDateTime(o.createdAt)}
-                      </span>
-                    </span>
-                    <span className="grid justify-items-end gap-1">
-                      <span className="type-label-s tabular-nums">{rupiah(o.total)}</span>
-                      <Badge variant={STATUS_BADGE[o.status]}>
-                        {STATUS_LABEL[o.status]}
-                      </Badge>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </CmsPage>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Stat({
+  icon,
+  label,
+  value,
+  change,
+  trend,
+}: {
+  icon: IconName;
+  label: string;
+  value: string;
+  /** Percent versus the previous period of the same length; null when there's nothing to compare */
+  change?: number | null;
+  trend?: number[];
+}) {
   return (
-    <div className="grid gap-2 rounded-2xl bg-secondary p-5 dark:ring-1 dark:ring-border">
-      <span className="type-label-s text-ink-soft">{label}</span>
-      <p className="type-display-s leading-tight text-ink-brand tabular-nums">{value}</p>
+    <div className="flex items-center gap-4 rounded-2xl bg-surface p-5 shadow-ds-1 dark:ring-1 dark:ring-border">
+      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--ds-selected)_14%,transparent)] text-[var(--ds-selected)]">
+        <Icon name={icon} className="size-6" />
+      </span>
+      <div className="grid min-w-0 flex-1 gap-0.5">
+        <p className="truncate type-display-s leading-tight tabular-nums">{value}</p>
+        <span className="truncate type-body-s text-ink-soft">{label}</span>
+        {change != null && (
+          <span className={cn("flex items-center gap-0.5 type-label-xs tabular-nums", change >= 0 ? "text-success-ink" : "text-danger-ink")}>
+            <Icon name={change >= 0 ? "upward" : "downward"} className="size-3.5" />
+            {Math.abs(change).toLocaleString("id-ID", { maximumFractionDigits: 1 })}%
+            <span className="sr-only">dibanding periode sebelumnya</span>
+          </span>
+        )}
+      </div>
+      {trend && <Spark values={trend} />}
     </div>
+  );
+}
+
+/** Small trend line of the period's buckets; decoration only, the numbers sit beside it. */
+function Spark({ values }: { values: number[] }) {
+  const max = Math.max(...values);
+  if (values.length < 2 || max === 0) return null;
+  const w = 88;
+  const h = 36;
+  const pts = values.map((v, i) => `${((i / (values.length - 1)) * w).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`);
+  return (
+    <svg aria-hidden viewBox={`0 0 ${w} ${h}`} className="hidden h-9 w-22 shrink-0 overflow-visible sm:block">
+      <polygon points={`0,${h} ${pts.join(" ")} ${w},${h}`} fill="color-mix(in srgb, var(--ds-selected) 12%, transparent)" />
+      <polyline points={pts.join(" ")} fill="none" stroke="var(--ds-selected)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   );
 }
 

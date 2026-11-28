@@ -23,8 +23,8 @@ export const CmsContext = createContext<{ user: User; openNav: () => void; logou
 export const useCms = () => useContext(CmsContext)!;
 
 /**
- * A CMS page in the console shell: the brand band carries the top bar and the heading, and the
- * work sheet rises out of it with rounded top corners.
+ * A CMS page in the console shell: a light top bar beside the dark sidebar, then the heading and
+ * its actions, then the work area.
  */
 export function CmsPage({
   title,
@@ -51,32 +51,21 @@ export function CmsPage({
   return (
     <>
       <title>{title}</title>
-      <div className="bg-band text-white">
-        <div
-          className={cn(
-            "sticky top-0 z-30 flex min-h-16 items-center gap-2 bg-band px-4 py-3 transition-shadow lg:px-8",
-            scrolled && "shadow-[0_6px_20px_-8px_#00000060]",
-          )}
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-white hover:bg-white/15 active:bg-white/25 lg:hidden"
-            onClick={openNav}
-            aria-label="Buka navigasi"
-          >
-            <Icon name="menu" className="size-5" />
-          </Button>
-          <div className="flex-1" />
-          <ModeToggle onBand />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 pr-3 pl-1.5 text-white hover:bg-white/15 active:bg-white/25 aria-expanded:bg-white/15"
-              >
-                <span className="grid size-7 place-items-center rounded-full bg-white type-label-xs text-band">
+      <div
+        className={cn(
+          "sticky top-0 z-30 flex min-h-16 items-center gap-2 bg-background/90 px-4 py-3 backdrop-blur-sm transition-shadow lg:px-8",
+          scrolled && "shadow-[0_1px_0_var(--ds-line)]",
+        )}
+      >
+        <Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={openNav} aria-label="Buka navigasi">
+          <Icon name="menu" className="size-5" />
+        </Button>
+        <div className="flex-1" />
+        <ModeToggle />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 pr-3 pl-1.5 aria-expanded:bg-fill-hover">
+              <span className="grid size-7 place-items-center rounded-full bg-band type-label-xs text-white">
                   {user.username.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="max-w-32 truncate">{user.username}</span>
@@ -96,22 +85,22 @@ export function CmsPage({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-        <PageFade className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 px-4 pt-2 pb-20 lg:px-8">
-          <div className="grid max-w-3xl gap-1">
-            <h1 className="type-display-m leading-tight text-white">{title}</h1>
-            {lead && <div className="type-body-m text-white/85">{lead}</div>}
-          </div>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-        </PageFade>
       </div>
-      <main className="relative -mt-14 flex-1 rounded-t-2xl bg-background px-4 pt-6 pb-12 lg:px-8 lg:pt-8">
-        <PageFade className="mx-auto grid max-w-[90rem] gap-6">{children}</PageFade>
+      <main className="flex-1 px-4 pt-2 pb-12 lg:px-8">
+        <PageFade className="mx-auto grid max-w-[90rem] gap-6">
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+            <div className="grid max-w-3xl gap-1">
+              <h1 className="type-display-m leading-tight">{title}</h1>
+              {lead && <div className="type-body-m text-ink-soft">{lead}</div>}
+            </div>
+            {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          </div>
+          {children}
+        </PageFade>
       </main>
     </>
   );
 }
 
-/** White button for the band */
-export const onBand = "bg-white text-[#25282A] hover:bg-[#F2F2F2] active:bg-[#E6E6E6]";
-export const onBandOutline = "border-white/70 bg-transparent text-white hover:bg-white/15 active:bg-white/25";
+/** Page-heading action buttons. Was the white button for the old dark band; now the plain primary. */
+export const onBand = "";

@@ -3,6 +3,8 @@ import { LazyMotion, MotionConfig } from "motion/react";
 import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useLocation, type Location } from "react-router";
 
 import type { Route } from "./+types/root";
+// The café name's typeface, bundled with the app (Latin, semibold only)
+import "@fontsource/fraunces/latin-600.css";
 import "./app.css";
 import { Toaster } from "~/components/ui/sonner";
 import { Button } from "~/components/ui/button";

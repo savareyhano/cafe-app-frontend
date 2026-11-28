@@ -24,7 +24,7 @@ export function Brand({ sub, className }: { sub?: string; className?: string }) 
     <span className={cn("flex min-w-0 items-center gap-3", className)}>
       <BrandMark />
       <span className="grid min-w-0 leading-tight">
-        <span className="truncate type-label-m leading-tight">{CAFE_NAME}</span>
+        <span className="truncate font-brand text-lg leading-tight font-semibold">{CAFE_NAME}</span>
         {sub && <span className="truncate type-body-xs text-ink-faint">{sub}</span>}
       </span>
     </span>

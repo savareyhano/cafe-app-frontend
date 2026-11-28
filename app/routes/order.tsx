@@ -7,12 +7,15 @@ import { api, errorMessage, fetchAll } from '~/lib/api';
 import { readTable, useCart, type CartLine } from '~/lib/cart';
 import { CAFE_NAME } from '~/lib/config';
 import { rupiah, TYPE_LABEL } from '~/lib/format';
+import { LABEL_STYLE, LABELS, useMenuDemo, type Label } from '~/lib/menu-demo';
+import { equalShares, personShares } from '~/lib/split';
 import { recentOrders } from '~/lib/storage';
-import type { Banner, MenuItem, MenuType, PaymentMethod } from '~/lib/types';
+import type { Banner, MenuItem, PaymentMethod } from '~/lib/types';
 import { cn } from '~/lib/utils';
 import { Brand } from '~/components/brand';
 import { Icon } from '~/components/icon';
 import { MenuThumb } from '~/components/menu-thumb';
+import { Segmented } from '~/components/segmented';
 import { SiteFooter } from '~/components/site-footer';
 import { Stepper } from '~/components/stepper';
 import { Badge } from '~/components/ui/badge';
@@ -48,6 +51,7 @@ import {
   SheetTitle,
 } from '~/components/ui/sheet';
 import { Spinner } from '~/components/ui/spinner';
+import { Switch } from '~/components/ui/switch';
 import { AnimatePresence, m } from 'motion/react';
 import { EASE_IN, EASE_OUT } from '~/components/page-fade';
 import { ModeToggle } from '~/components/mode-toggle';
@@ -73,19 +77,15 @@ export function meta() {
   ];
 }
 
-const FILTERS: { key: 'all' | MenuType; label: string }[] = [
-  { key: 'all', label: 'Semua' },
-  { key: 'food', label: 'Makanan' },
-  { key: 'drink', label: 'Minuman' },
-];
-
 export default function OrderPage({ loaderData }: Route.ComponentProps) {
   const { menu, banners } = loaderData;
   const [params] = useSearchParams();
   const [table, setTable] = useState<number | null>(null);
   const cart = useCart();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | MenuType>('all');
+  // A category id from the CMS's category list, or 'all'
+  const [filter, setFilter] = useState('all');
+  const demo = useMenuDemo();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [detail, setDetail] = useState<{
     open: boolean;
@@ -100,24 +100,31 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
   const { prune } = cart;
   useEffect(() => prune(new Set(byId.keys())), [byId, prune]);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return menu.filter(
-      (m) =>
-        (filter === 'all' || m.type === filter) &&
-        (!q ||
-          m.name.toLowerCase().includes(q) ||
-          m.description?.toLowerCase().includes(q)),
-    );
-  }, [menu, query, filter]);
+  const q = query.trim().toLowerCase();
+  const visible = menu.filter(
+    (m) =>
+      (filter === 'all' || demo.categoryOf(m) === filter) &&
+      (!q ||
+        m.name.toLowerCase().includes(q) ||
+        m.description?.toLowerCase().includes(q)),
+  );
 
-  const sections = (['food', 'drink'] as const)
-    .map((type) => ({
-      type,
-      title: type === 'food' ? 'Makanan' : 'Minuman',
-      items: visible.filter((m) => m.type === type),
+  // One section per category, in the CMS's order; empty categories stay hidden from customers
+  const sections = demo.categories
+    .map((c) => ({
+      id: c.id,
+      title: c.name,
+      items: visible.filter((m) => demo.categoryOf(m) === c.id),
     }))
     .filter((s) => s.items.length > 0);
+  const filters: { key: string; label: string; thumb?: MenuItem }[] = [
+    { key: 'all', label: 'Semua' },
+    ...demo.categories.flatMap((c) => {
+      const list = menu.filter((m) => demo.categoryOf(m) === c.id);
+      // Each chip shows one of its dishes, like the category cards in the console
+      return list.length ? [{ key: c.id, label: c.name, thumb: list.find((m) => m.imageUrl) ?? list[0] }] : [];
+    }),
+  ];
 
   const count = cart.lines.reduce((n, l) => n + l.quantity, 0);
   const total = cart.lines.reduce(
@@ -142,8 +149,8 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col bg-canvas md:max-w-3xl">
-      {/* Sticky top: header, search and filters stay in reach */}
-      <header className="sticky top-0 z-20 grid gap-3 bg-surface pt-2 pb-3 shadow-[0_1px_0_var(--ds-line)]">
+      {/* The name row scrolls away so phones keep more of the menu in view */}
+      <header className="bg-surface pt-2">
         <div className="flex min-h-12 items-center gap-2 px-4">
           <Brand className="flex-1" sub={table ? `Meja ${table}` : 'Menu'} />
           {hasOrders && (
@@ -156,6 +163,10 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
           )}
           <ModeToggle />
         </div>
+      </header>
+
+      {/* Sticky: search and filters stay in reach */}
+      <div className="sticky top-0 z-20 grid gap-3 bg-surface py-3 shadow-[0_1px_0_var(--ds-line)]">
         <div className="px-4">
           <label className="relative block">
             <span className="sr-only">Cari menu</span>
@@ -177,19 +188,30 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
           role="group"
           aria-label="Kategori"
         >
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.key}
               type="button"
               aria-pressed={filter === f.key}
-              onClick={() => setFilter(f.key)}
-              className="min-h-9 shrink-0 rounded-full border border-line-strong bg-surface px-4 type-label-s text-ink-soft transition-colors duration-[120ms] hover:bg-fill-hover aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+              onClick={(e) => {
+                setFilter(f.key);
+                // The row scrolls sideways; keep the picked category in view
+                e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+              }}
+              className="flex min-h-10 shrink-0 items-center gap-2 rounded-full border border-line-strong bg-surface py-1 pr-4 pl-1 type-label-s whitespace-nowrap text-ink-soft transition-colors duration-[120ms] hover:bg-fill-hover aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
             >
+              {f.thumb ? (
+                <MenuThumb src={f.thumb.imageUrl} type={f.thumb.type} alt="" className="size-8 rounded-full" />
+              ) : (
+                <span className="grid size-8 place-items-center rounded-full bg-muted text-ink-soft">
+                  <Icon name="food-menu" className="size-4" />
+                </span>
+              )}
               {f.label}
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
       <main className="grid flex-1 content-start gap-4 pt-4 pb-6">
         {!table && (
@@ -216,7 +238,7 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
         )}
 
         {menu.length === 0 ? (
-          <Empty className="mx-4 rounded-lg bg-surface">
+          <Empty className="mx-4 w-auto rounded-lg bg-surface">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Icon name="food-menu" />
@@ -229,7 +251,7 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
             </EmptyHeader>
           </Empty>
         ) : sections.length === 0 ? (
-          <Empty className="mx-4 rounded-lg bg-surface">
+          <Empty className="mx-4 w-auto rounded-lg bg-surface">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Icon name="search" />
@@ -243,24 +265,25 @@ export default function OrderPage({ loaderData }: Route.ComponentProps) {
               size="sm"
               onClick={() => (setQuery(''), setFilter('all'))}
             >
-              Hapus pencarian
+              {query ? 'Hapus pencarian' : 'Lihat semua menu'}
             </Button>
           </Empty>
         ) : (
           sections.map((s) => (
             <section
-              key={s.type}
-              aria-labelledby={`sec-${s.type}`}
-              className="bg-surface px-4 pt-5 pb-1 md:mx-4 md:rounded-2xl"
+              key={s.id}
+              aria-labelledby={`sec-${s.id}`}
+              className="grid gap-3 px-4 pt-2"
             >
-              <h2 id={`sec-${s.type}`} className="type-label-l text-xl">
+              <h2 id={`sec-${s.id}`} className="type-label-l text-xl">
                 {s.title}
               </h2>
-              <ul className="md:grid md:grid-cols-2 md:gap-x-6">
+              <ul className="grid gap-3 md:grid-cols-2">
                 {s.items.map((m) => (
                   <DishRow
                     key={m.id}
                     item={m}
+                    label={demo.labelOf(m.id)}
                     qty={cart.qtyOf(m.id)}
                     onQty={(n) => cart.setQty(m.id, n)}
                     onPreview={() => openDetail(m)}
@@ -402,7 +425,8 @@ function BannerRail({
     if (!el || !first) return 0;
     return Math.min(
       banners.length - 1,
-      Math.round(el.scrollLeft / (first.offsetWidth + 12)),
+      // Slide width plus whatever gap this breakpoint uses
+      Math.round(el.scrollLeft / (first.offsetWidth + parseFloat(getComputedStyle(el).columnGap))),
     );
   };
   const onScroll = () => setIndex(nearest());
@@ -497,10 +521,10 @@ function BannerRail({
         }}
         className={cn(
           'relative grid snap-x snap-mandatory grid-flow-col gap-3 overflow-x-auto overscroll-x-contain select-none [scrollbar-width:none]',
-          // Several slides: the active one sits in the middle with its neighbours peeking in, so
-          // every slide (first and last too) can be centred and the focus is never between two
+          // Several slides: on phones the active one sits in the middle with its neighbours peeking
+          // in; from md up one slide fills the column, in line with the menu cards
           many
-            ? 'cursor-grab auto-cols-[min(88cqw,26rem)] px-[calc((100cqw-min(88cqw,26rem))/2)] active:cursor-grabbing'
+            ? 'cursor-grab auto-cols-[min(88cqw,26rem)] px-[calc((100cqw-min(88cqw,26rem))/2)] active:cursor-grabbing md:auto-cols-[calc(100cqw-2rem)] md:gap-4 md:px-4'
             : 'auto-cols-[100%] px-4 md:auto-cols-[min(100%,36rem)]',
         )}
       >
@@ -514,7 +538,7 @@ function BannerRail({
               loading={i === 0 ? 'eager' : 'lazy'}
               fetchPriority={i === 0 ? 'high' : undefined}
               draggable={false}
-              className="aspect-[2/1] w-full rounded-2xl bg-muted object-cover"
+              className="aspect-[2/1] w-full rounded-2xl bg-muted object-cover shadow-ds-1 ring-1 ring-line md:aspect-[5/2]"
             />
           );
           return (
@@ -577,11 +601,13 @@ function BannerRail({
 
 function DishRow({
   item,
+  label,
   qty,
   onQty,
   onPreview,
 }: {
   item: MenuItem;
+  label?: Label;
   qty: number;
   onQty: (n: number) => void;
   onPreview: () => void;
@@ -589,26 +615,34 @@ function DishRow({
   return (
     <li
       id={`dish-${item.id}`}
-      className="relative -mx-2 grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 rounded-xl border-b px-2 py-4 transition-colors duration-[120ms] last:border-b-0 hover:bg-fill-hover/60 active:bg-fill-press/40 md:[&:nth-last-child(2):nth-child(odd)]:border-b-0"
+      className="relative grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 rounded-2xl border border-line bg-surface p-3 shadow-ds-1 transition-colors duration-[120ms] hover:bg-fill-hover active:bg-fill-press"
     >
       {/* Stretched button makes the entire dish card clickable while keeping quick-add controls separate */}
       <button
         type="button"
         onClick={onPreview}
         aria-label={`Lihat detail ${item.name}`}
-        className="absolute inset-0 z-0 cursor-pointer rounded-xl focus-visible:outline-offset-[-2px]"
+        className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-offset-[-2px]"
       />
-      <MenuThumb
-        src={item.imageUrl}
-        type={item.type}
-        alt={item.name}
-        className="pointer-events-none"
-      />
+      <div className="pointer-events-none relative">
+        <MenuThumb src={item.imageUrl} type={item.type} alt={item.name} className="rounded-xl" />
+        {label && (
+          <span
+            className={cn(
+              'absolute top-1.5 left-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 type-label-xs',
+              LABEL_STYLE[label].className,
+            )}
+          >
+            <Icon name={LABEL_STYLE[label].icon} className="size-3.5" />
+            {LABELS[label]}
+          </span>
+        )}
+      </div>
       <div className="pointer-events-none grid min-w-0 content-between gap-2">
         <div className="grid gap-1">
           <h3 className="type-label-m">{item.name}</h3>
           {item.description && (
-            <p className="line-clamp-1 type-body-s text-ink-soft">
+            <p className="line-clamp-2 type-body-s text-ink-soft">
               {item.description}
             </p>
           )}
@@ -808,6 +842,8 @@ function CheckoutSheet({
   const [payment, setPayment] = useState<PaymentMethod>('cashless');
   const [nameError, setNameError] = useState('');
   const [busy, setBusy] = useState<'' | 'placing' | 'redirecting'>('');
+  // The dish whose empty note field was just opened; fields with text always show
+  const [noteOpen, setNoteOpen] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   // Close the sheet when the last item is removed
@@ -856,7 +892,7 @@ function CheckoutSheet({
     <Sheet open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <SheetContent
         side="bottom"
-        className="mx-auto max-w-[30rem] gap-0 overflow-y-auto md:max-w-xl"
+        className="mx-auto max-w-[30rem] gap-0 overflow-y-auto bg-background md:max-w-xl"
       >
         <SheetHeader className="pb-3">
           <SheetTitle>Pesanan Anda</SheetTitle>
@@ -865,7 +901,8 @@ function CheckoutSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form id="checkout" onSubmit={submit} className="grid gap-5 px-5 pb-2">
+        <form id="checkout" onSubmit={submit} className="grid gap-3 px-4 pb-3">
+          <Step n={1} title="Pesanan">
           <ul className="grid">
             {lines.map((l) => {
               const m = byId.get(l.menuItemId);
@@ -894,25 +931,43 @@ function CheckoutSheet({
                       name={m.name}
                     />
                   </div>
-                  <label className="relative block">
-                    <span className="sr-only">Catatan untuk {m.name}</span>
-                    <Icon
-                      name="notes"
-                      className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint"
-                    />
-                    <Input
-                      value={l.note}
-                      onChange={(e) => onNote(m.id, e.target.value)}
-                      placeholder="Catatan, mis. tidak pedas"
-                      maxLength={200}
-                      className="h-10 pl-10 text-sm"
-                    />
-                  </label>
+                  {l.note || noteOpen === m.id ? (
+                    <label className="relative block">
+                      <span className="sr-only">Catatan untuk {m.name}</span>
+                      <Icon
+                        name="notes"
+                        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint"
+                      />
+                      <Input
+                        autoFocus={noteOpen === m.id}
+                        value={l.note}
+                        onChange={(e) => onNote(m.id, e.target.value)}
+                        onBlur={() => setNoteOpen(null)}
+                        placeholder="Catatan, mis. tidak pedas"
+                        maxLength={200}
+                        className="h-10 pl-10 text-sm"
+                      />
+                    </label>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-fit px-3 text-ink-soft"
+                      onClick={() => setNoteOpen(m.id)}
+                      aria-label={`Tambah catatan untuk ${m.name}`}
+                    >
+                      <Icon name="plus" />
+                      Tambah catatan
+                    </Button>
+                  )}
                 </li>
               );
             })}
           </ul>
+          </Step>
 
+          <Step n={2} title="Data pemesan">
           <Field data-invalid={!!nameError}>
             <FieldLabel htmlFor="customer-name">Nama</FieldLabel>
             <Input
@@ -944,46 +999,39 @@ function CheckoutSheet({
               placeholder="08xxxxxxxxxx"
             />
           </Field>
+          </Step>
 
-          <fieldset className="grid gap-2">
-            <legend className="mb-2 type-label-s">Pembayaran</legend>
+          <Step n={3} title="Pembayaran" fieldset>
             <RadioGroup
               value={payment}
               onValueChange={(v) => setPayment(v as PaymentMethod)}
-              className="gap-2"
+              className="grid-cols-2 gap-2"
+              aria-describedby="payment-hint"
             >
               {(
                 [
-                  [
-                    'cashless',
-                    'Non-tunai',
-                    'QRIS, e-wallet, kartu, atau transfer bank',
-                    'wallet',
-                  ],
-                  [
-                    'cash',
-                    'Tunai',
-                    'Bayar di kasir, lalu pesanan mulai dibuat',
-                    'cash',
-                  ],
+                  ['cashless', 'Non-tunai', 'wallet'],
+                  ['cash', 'Tunai', 'cash'],
                 ] as const
-              ).map(([value, title, desc, icon]) => (
+              ).map(([value, title, icon]) => (
                 <label
                   key={value}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-line-strong p-3 transition-colors hover:bg-fill-hover has-data-checked:border-transparent has-data-checked:bg-secondary has-data-checked:shadow-[inset_0_0_0_2px_var(--ds-selected)]"
+                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-line-strong px-3 transition-colors hover:bg-fill-hover has-data-checked:border-transparent has-data-checked:bg-secondary has-data-checked:shadow-[inset_0_0_0_2px_var(--ds-selected)]"
                 >
-                  <span className="grid size-10 place-items-center rounded-full bg-muted text-ink-soft">
-                    <Icon name={icon} className="size-5" />
-                  </span>
-                  <span className="grid flex-1">
-                    <span className="type-label-s">{title}</span>
-                    <span className="type-body-xs text-ink-soft">{desc}</span>
-                  </span>
+                  <Icon name={icon} className="size-5 text-ink-soft" />
+                  <span className="flex-1 type-label-s whitespace-nowrap">{title}</span>
                   <RadioGroupItem value={value} aria-label={title} />
                 </label>
               ))}
             </RadioGroup>
-          </fieldset>
+            <p id="payment-hint" className="type-body-xs text-ink-soft">
+              {payment === 'cash'
+                ? 'Bayar di kasir, lalu pesanan mulai dibuat.'
+                : 'QRIS, e-wallet, kartu, atau transfer bank.'}
+            </p>
+          </Step>
+
+          <SplitBill lines={lines} byId={byId} total={total} />
         </form>
 
         <SheetFooter className="sticky bottom-0 gap-2 border-t bg-popover">
@@ -1018,5 +1066,188 @@ function CheckoutSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * One checkout step as an ivory card on the cream sheet, numbered because the order matters:
+ * what you ordered, who you are, how you pay. `fieldset` keeps the radio group's grouping for
+ * screen readers.
+ */
+function Step({
+  n,
+  title,
+  fieldset,
+  children,
+}: {
+  n: number;
+  title: string;
+  fieldset?: boolean;
+  children: React.ReactNode;
+}) {
+  const heading = (
+    <span className="flex items-center gap-2.5 type-label-m">
+      <span className="grid size-6 place-items-center rounded-full bg-primary type-label-xs text-primary-foreground tabular-nums">
+        {n}
+      </span>
+      {title}
+    </span>
+  );
+  const card = 'grid min-w-0 gap-4 rounded-2xl border border-line bg-surface p-4 shadow-ds-1';
+  return fieldset ? (
+    <fieldset className={card}>
+      {/* A legend can't be a grid item, so it floats and the next row clears it */}
+      <legend className="float-left w-full">{heading}</legend>
+      {children}
+    </fieldset>
+  ) : (
+    <section className={card}>
+      <h3>{heading}</h3>
+      {children}
+    </section>
+  );
+}
+
+const MAX_PEOPLE = 10;
+
+/**
+ * Split-bill calculator, off by default. It only shows each person's share: the order is still
+ * paid once, and the split isn't saved or sent to the cafe.
+ */
+function SplitBill({
+  lines,
+  byId,
+  total,
+}: {
+  lines: CartLine[];
+  byId: Map<string, MenuItem>;
+  total: number;
+}) {
+  const [on, setOn] = useState(false);
+  const [mode, setMode] = useState<'equal' | 'person'>('equal');
+  const [people, setPeople] = useState(2);
+  // Portions of each dish per person (0-based); portions nobody took are shared by everyone
+  const [taken, setTaken] = useState<Record<string, (number | undefined)[]>>({});
+
+  const items = lines.flatMap((l) => {
+    const m = byId.get(l.menuItemId);
+    return m ? [{ id: m.id, name: m.name, price: m.price, quantity: l.quantity }] : [];
+  });
+  const everyone = [...Array(people).keys()];
+  const mine = (id: string, p: number) => taken[id]?.[p] ?? 0;
+  const left = (id: string, quantity: number) =>
+    Math.max(0, quantity - everyone.reduce((n, p) => n + mine(id, p), 0));
+  const split =
+    mode === 'equal'
+      ? { shares: equalShares(total, people), unassigned: 0 }
+      : personShares(items, people, taken);
+  const { shares, unassigned } = split;
+  const rounded = shares.reduce((n, s) => n + s, 0) !== total;
+
+  const setMine = (id: string, p: number, n: number) =>
+    setTaken((t) => {
+      const next = [...(t[id] ?? [])];
+      next[p] = n;
+      return { ...t, [id]: next };
+    });
+
+  return (
+    <section className="grid gap-4 rounded-2xl border border-line bg-surface p-4 shadow-ds-1">
+      <label htmlFor="split-toggle" className="flex cursor-pointer items-center gap-3">
+        <Icon name="split-bill" className="size-6 text-ink-soft" />
+        <span className="grid flex-1">
+          <span className="type-label-s">Split bill</span>
+          <span className="type-body-xs text-ink-soft">
+            Hitung bagian tiap orang. Pembayaran tetap satu kali.
+          </span>
+        </span>
+        <Switch id="split-toggle" checked={on} onCheckedChange={setOn} />
+      </label>
+
+      {on && (
+        <>
+          <Segmented
+            label="Cara membagi"
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: 'equal', label: 'Bagi rata' },
+              { value: 'person', label: 'Per orang' },
+            ]}
+            className="[&>button]:flex-1"
+          />
+
+          <div className="flex items-center justify-between gap-3">
+            <span className="type-label-s">Jumlah orang</span>
+            <Stepper
+              value={people}
+              onChange={setPeople}
+              name="orang"
+              min={2}
+              max={MAX_PEOPLE}
+            />
+          </div>
+
+          {mode === 'person' ? (
+            <ul className="grid gap-3">
+              {everyone.map((p) => (
+                <li
+                  key={p}
+                  aria-labelledby={`split-person-${p}`}
+                  className="grid gap-2 rounded-xl bg-muted p-3"
+                >
+                  <div className="flex items-baseline justify-between gap-2" aria-live="polite">
+                    <span id={`split-person-${p}`} className="type-label-s">
+                      Orang {p + 1}
+                    </span>
+                    <span className="type-label-m tabular-nums">{rupiah(shares[p])}</span>
+                  </div>
+                  {items.map((it) => {
+                    const n = mine(it.id, p);
+                    const rest = left(it.id, it.quantity);
+                    return (
+                      <div key={it.id} className="flex items-center justify-between gap-2">
+                        <span className="grid min-w-0">
+                          <span className="truncate type-body-s">{it.name}</span>
+                          <span className="type-body-xs text-ink-soft tabular-nums">
+                            {rupiah(it.price)}
+                            {it.quantity > 1 && ` · sisa ${rest} dari ${it.quantity}`}
+                          </span>
+                        </span>
+                        <Stepper
+                          value={n}
+                          onChange={(v) => setMine(it.id, p, v)}
+                          name={`${it.name} untuk Orang ${p + 1}`}
+                          max={n + rest}
+                        />
+                      </div>
+                    );
+                  })}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div
+              className="flex items-baseline justify-between rounded-lg bg-muted p-3"
+              aria-live="polite"
+            >
+              <span className="type-body-s text-ink-soft">Per orang</span>
+              <span className="type-label-l tabular-nums">{rupiah(shares[0])}</span>
+            </div>
+          )}
+
+          {(unassigned > 0 || rounded) && (
+            <div className="grid gap-1 type-body-xs text-ink-soft">
+              {unassigned > 0 && (
+                <p>
+                  Belum dipilih {rupiah(unassigned)}, dibagi rata ke semua orang.
+                </p>
+              )}
+              {rounded && <p>Dibulatkan ke atas ke Rp100 terdekat.</p>}
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
