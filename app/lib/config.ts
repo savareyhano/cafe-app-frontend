@@ -5,6 +5,9 @@ export const CAFE_NAME = env.VITE_CAFE_NAME || "Kafe";
 export const CAFE_LOGO_URL = env.VITE_CAFE_LOGO_URL || "";
 export const CAFE_ADDRESS = env.VITE_CAFE_ADDRESS || "";
 export const GOOGLE_REVIEW_URL = env.VITE_GOOGLE_REVIEW_URL || "";
+/** Midtrans Snap client key (public by design). Without it, payments open on Midtrans's own page instead of the popup. */
+export const MIDTRANS_CLIENT_KEY = env.VITE_MIDTRANS_CLIENT_KEY || "";
+export const MIDTRANS_PRODUCTION = env.VITE_MIDTRANS_PRODUCTION === "true";
 
 export const cafeInitials = CAFE_NAME.split(/\s+/)
   .slice(0, 2)

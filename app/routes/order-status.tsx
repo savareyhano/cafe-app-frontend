@@ -6,21 +6,22 @@ import type { Route } from "./+types/order-status";
 import { api, ApiError, errorMessage } from "~/lib/api";
 import { CAFE_ADDRESS, CAFE_NAME } from "~/lib/config";
 import { formatDateTime, PAYMENT_LABEL, rupiah, STATUS_BADGE, STATUS_LABEL } from "~/lib/format";
+import { openSnap, payReturn } from "~/lib/snap";
+import { splitProgress } from "~/lib/split";
 import { readJson, recentOrders, writeJson } from "~/lib/storage";
 import type { Order, OrderStatus } from "~/lib/types";
 import { cn } from "~/lib/utils";
 import { Icon, type IconName } from "~/components/icon";
 import { StatusScene, type StatusPose } from "~/components/cafe-scene";
 import { MenuThumb } from "~/components/menu-thumb";
+import { Frame, InfoRow, InvoiceButton, PartList, usePolling } from "~/components/order-view";
 import { RateUsDialog } from "~/components/rate-us-dialog";
-import { SiteFooter } from "~/components/site-footer";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "~/components/ui/empty";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { EASE_IN, EASE_OUT } from "~/components/page-fade";
 import { Spinner } from "~/components/ui/spinner";
-import { ModeToggle } from "~/components/mode-toggle";
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   const id = new URL(request.url).searchParams.get("order_id");
@@ -39,9 +40,15 @@ export async function clientLoader({ request }: Route.ClientLoaderArgs) {
   try {
     const order = await api.order(id);
     recentOrders.add(order.id); // also covers the return from the payment page
+    payReturn.take();
     return { order, missing: false };
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 400)) return { order: null, missing: true };
+    if (e instanceof ApiError && (e.status === 404 || e.status === 400)) {
+      // Back from Midtrans's own page: its order_id is a payment id, so return to where paying started
+      const back = payReturn.take();
+      if (back) throw redirect(back);
+      return { order: null, missing: true };
+    }
     throw e;
   }
 }
@@ -52,7 +59,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 const FINAL: OrderStatus[] = ["completed", "cancelled"];
-const POLL_MS = 5000;
 
 export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
   const { order, missing } = loaderData;
@@ -81,6 +87,9 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
   }
 
   const itemCount = order.orderItems.reduce((n, i) => n + i.quantity, 0);
+  const progress = splitProgress(order);
+  // A split order gets an invoice per part, from the parts list
+  const invoice = order.paidAt && !order.splitMode;
 
   return (
     <Frame table={order.tableNumber}>
@@ -100,23 +109,42 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
             <Icon name="block" className="mt-0.5 size-5" />
             <p className="type-body-s">
               <span className="block type-label-s">Pesanan dibatalkan</span>
-              {order.paymentMethod === "cashless" && !order.paidAt
+              {order.paymentMethod === "cashless" && !order.paidAt && !order.splitMode
                 ? "Pembayaran tidak selesai sebelum batas waktu. Silakan pesan lagi."
                 : "Pesanan ini dibatalkan oleh kafe. Tanyakan ke kasir bila ada pertanyaan."}
             </p>
           </div>
         ) : (
-          <Progress status={order.status} paymentMethod={order.paymentMethod} />
+          <div className="grid gap-2">
+            <Progress status={order.status} paymentMethod={order.splitMode ? "cashless" : order.paymentMethod} />
+            {order.splitMode && order.status === "pending" && (
+              <p className="text-center type-label-xs text-warning-ink tabular-nums">
+                {progress.paid} dari {progress.count} sudah bayar
+              </p>
+            )}
+          </div>
         )}
       </section>
 
       <section className="grid bg-surface px-4 mx-4 rounded-2xl border border-line shadow-ds-1" aria-label="Ringkasan">
         <InfoRow icon="location" title={CAFE_NAME} sub={CAFE_ADDRESS || `Meja ${order.tableNumber}`} />
-        <InfoRow
-          icon={order.paymentMethod === "cash" ? "cash" : "wallet"}
-          title={PAYMENT_LABEL[order.paymentMethod]}
-          sub={order.paidAt ? `Sudah dibayar · ${formatDateTime(order.paidAt)}` : "Belum dibayar"}
-        />
+        {order.splitMode ? (
+          <InfoRow
+            icon="group"
+            title={`Pisah ${progress.count} bagian${order.splitMode === "even" ? " · dibagi rata" : ""}`}
+            sub={
+              order.paidAt
+                ? `Semua sudah dibayar · ${formatDateTime(order.paidAt)}`
+                : `${progress.paid} dari ${progress.count} sudah bayar · sisa ${rupiah(progress.left)}`
+            }
+          />
+        ) : (
+          <InfoRow
+            icon={order.paymentMethod === "cash" ? "cash" : "wallet"}
+            title={PAYMENT_LABEL[order.paymentMethod]}
+            sub={order.paidAt ? `Sudah dibayar · ${formatDateTime(order.paidAt)}` : "Belum dibayar"}
+          />
+        )}
         <InfoRow icon="bill" title={`${itemCount} item`}>
           <dl className="mt-2 grid gap-1 type-body-s">
             <div className="flex justify-between type-label-m">
@@ -126,6 +154,15 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
           </dl>
         </InfoRow>
       </section>
+
+      {order.splitMode && (
+        <section className="grid mx-4 rounded-2xl border border-line bg-surface px-4 pt-4 shadow-ds-1" aria-labelledby="parts-title">
+          <h2 id="parts-title" className="type-label-m">
+            Bagian
+          </h2>
+          <PartList order={order} share />
+        </section>
+      )}
 
       <section className="bg-surface px-4 mx-4 rounded-2xl border border-line shadow-ds-1" aria-labelledby="items-title">
         <h2 id="items-title" className="sr-only">Daftar item</h2>
@@ -150,8 +187,8 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
       </section>
 
       <div className="grid gap-3 px-4 sm:grid-cols-2">
-        {order.paidAt && <InvoiceButton order={order} />}
-        <Button asChild variant={order.paidAt ? "outline" : "default"} className={cn(!order.paidAt && "sm:col-span-2")}>
+        {invoice && <InvoiceButton order={order} />}
+        <Button asChild variant={invoice ? "outline" : "default"} className={cn(!invoice && "sm:col-span-2")}>
           <Link to={`/?meja=${order.tableNumber}`}>
             <Icon name="food-menu" />
             Pesan lagi
@@ -163,25 +200,6 @@ export default function OrderStatusPage({ loaderData }: Route.ComponentProps) {
 
       {order.status === "completed" && <RateUsDialog customerName={order.customerName} />}
     </Frame>
-  );
-}
-
-function Frame({ children, table }: { children: React.ReactNode; table?: number }) {
-  return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col bg-canvas md:max-w-2xl">
-      <header className="sticky top-0 z-20 flex min-h-14 items-center gap-2 bg-surface px-2 shadow-[0_1px_0_var(--ds-line)]">
-        <Button asChild variant="ghost" size="icon-sm" className="text-ink">
-          <Link to={table ? `/?meja=${table}` : "/"} aria-label="Kembali ke menu">
-            <Icon name="back" className="size-5" />
-          </Link>
-        </Button>
-        <h1 className="flex-1 truncate type-label-l">Detail Pesanan</h1>
-        {table && <Badge variant="solid">Meja {table}</Badge>}
-        <ModeToggle />
-      </header>
-      <main className="grid flex-1 content-start gap-3 pt-4 pb-6">{children}</main>
-      <SiteFooter />
-    </div>
   );
 }
 
@@ -202,8 +220,9 @@ const SCENE_POSE: Record<Exclude<OrderStatus, "cancelled">, StatusPose> = {
 
 function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof useReadySound> }) {
   const { icon, tone } = HERO[order.status];
-  const cashPending = order.status === "pending" && order.paymentMethod === "cash";
-  const cashlessPending = order.status === "pending" && order.paymentMethod === "cashless";
+  const pending = order.status === "pending";
+  const cashPending = pending && !order.splitMode && order.paymentMethod === "cash";
+  const cashlessPending = pending && !order.splitMode && order.paymentMethod === "cashless";
 
   return (
     <div className="grid justify-items-center gap-3 text-center" aria-live="polite">
@@ -244,14 +263,17 @@ function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof u
           <p className="max-w-xs type-body-s text-ink-soft">
             Pesanan dibuat setelah pembayaran diterima. Halaman ini diperbarui otomatis.
           </p>
-          {order.redirectUrl && (
-            <Button asChild>
-              <a href={order.redirectUrl}>
-                <Icon name="wallet" />
-                Lanjutkan pembayaran
-              </a>
-            </Button>
-          )}
+          {(order.snapToken || order.redirectUrl) && <ContinuePayment order={order} />}
+        </>
+      )}
+
+      {pending && order.splitMode && (
+        <>
+          <p className="type-label-l">Menunggu semua bagian dibayar</p>
+          <p className="max-w-xs type-body-s text-ink-soft">
+            Pesanan mulai dibuat setelah {order.orderParts.length} bagian lunas. Bagikan tautan bagian ke teman Anda dari
+            daftar di bawah.
+          </p>
         </>
       )}
 
@@ -285,6 +307,30 @@ function StatusHero({ order, sound }: { order: Order; sound: ReturnType<typeof u
 
       {order.status === "cancelled" && <p className="type-label-l">Pesanan dibatalkan</p>}
     </div>
+  );
+}
+
+/** Reopens the Midtrans popup for an unpaid online order, then refreshes from Midtrans. */
+function ContinuePayment({ order }: { order: Order }) {
+  const { revalidate } = useRevalidator();
+  const [busy, setBusy] = useState(false);
+  const pay = async () => {
+    setBusy(true);
+    try {
+      const result = await openSnap(order.snapToken, order.redirectUrl, `/pesanan?order_id=${order.id}`);
+      if (result === "redirected") return;
+      await api.checkOrderPayment(order.id).catch(() => null);
+      revalidate();
+    } catch (e) {
+      toast.error("Pembayaran belum bisa dibuka", { description: errorMessage(e) });
+    }
+    setBusy(false);
+  };
+  return (
+    <Button onClick={pay} disabled={busy}>
+      {busy ? <Spinner label={false} /> : <Icon name="wallet" />}
+      Lanjutkan pembayaran
+    </Button>
   );
 }
 
@@ -358,53 +404,6 @@ function Progress({ status, paymentMethod }: { status: OrderStatus; paymentMetho
   );
 }
 
-function InfoRow({
-  icon,
-  title,
-  sub,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  sub?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div className="flex gap-3 border-b py-4 last:border-b-0">
-      <Icon name={icon} className="mt-0.5 size-5 text-ink-faint" />
-      <div className="min-w-0 flex-1">
-        <p className="type-label-s">{title}</p>
-        {sub && <p className="type-body-s text-ink-soft">{sub}</p>}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function InvoiceButton({ order }: { order: Order }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <Button
-      variant="secondary"
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        try {
-          const { downloadInvoice } = await import("~/lib/invoice");
-          await downloadInvoice(order);
-        } catch (e) {
-          toast.error("Invoice gagal diunduh", { description: errorMessage(e) });
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      {busy ? <Spinner label={false} /> : <Icon name="downloads" />}
-      Unduh invoice
-    </Button>
-  );
-}
-
 function OtherOrders({ currentId }: { currentId: string }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   useEffect(() => {
@@ -443,18 +442,6 @@ function OtherOrders({ currentId }: { currentId: string }) {
       </ul>
     </section>
   );
-}
-
-/** Revalidates the loader every few seconds while the tab is visible. */
-function usePolling(active: boolean) {
-  const { revalidate } = useRevalidator();
-  useEffect(() => {
-    if (!active) return;
-    const tick = () => document.visibilityState === "visible" && revalidate();
-    const t = setInterval(tick, POLL_MS);
-    document.addEventListener("visibilitychange", tick);
-    return () => (clearInterval(t), document.removeEventListener("visibilitychange", tick));
-  }, [active, revalidate]);
 }
 
 const NOTIFIED_KEY = "ready-notified";

@@ -2,6 +2,8 @@ export type Role = "staff" | "admin" | "super_admin";
 export type MenuType = "food" | "drink";
 export type OrderStatus = "pending" | "preparing" | "ready" | "completed" | "cancelled";
 export type PaymentMethod = "cash" | "cashless";
+export type SplitMode = "item" | "even";
+export type ManualRefundReason = "cash" | "unsupported_method" | "refund_failed";
 
 export type Pagination = {
   totalRecords: number;
@@ -55,9 +57,38 @@ export type Order = {
   paidAt: string | null;
   redirectUrl: string | null;
   snapToken: string | null;
+  /** null: paid as one. Otherwise the order is paid in `orderParts`. */
+  splitMode: SplitMode | null;
   createdAt: string;
   updatedAt: string;
   orderItems: OrderItem[];
+  orderParts: OrderPart[];
+};
+
+/** One person's share of a split order, paid on its own with its own invoice number. */
+export type OrderPart = {
+  id: string;
+  orderId: string;
+  no: number;
+  invoiceNumber: string;
+  name: string | null;
+  amount: number;
+  /** null until someone picks how this part is paid */
+  paymentMethod: PaymentMethod | null;
+  paidAt: string | null;
+  redirectUrl: string | null;
+  snapToken: string | null;
+  snapExpiresAt: string | null;
+  /** Midtrans payment_type once paid online, e.g. "gopay", "qris", "bank_transfer" */
+  paymentType: string | null;
+  /** Midtrans can refund it automatically (paid online with a method that supports refunds) */
+  refundable: boolean;
+  /** Set once Midtrans accepted the refund of a cancelled order's part */
+  refundedAt: string | null;
+  /** Why a cancelled order's paid part must be refunded by hand */
+  manualRefundReason: ManualRefundReason | null;
+  /** "Per item" mode only: which order items, and how many of each, this part pays for */
+  orderPartItems: { id: string; orderItemId: string; quantity: number }[];
 };
 
 export type DashboardData = {

@@ -3,7 +3,9 @@ import type {
   Banner,
   DashboardData,
   MenuItem,
+  ManualRefundReason,
   Order,
+  OrderPart,
   OrderStatus,
   Pagination,
   PaymentMethod,
@@ -42,6 +44,11 @@ const MESSAGES: Record<string, string> = {
   "Completed orders cannot be modified": "Pesanan yang selesai tidak bisa diubah.",
   "Only pending orders can be cancelled": "Hanya pesanan yang belum dibayar yang bisa dibatalkan.",
   "Ready orders can only transition to completed": "Pesanan siap hanya bisa ditandai selesai.",
+  "Order part not found": "Bagian ini tidak ditemukan. Minta tautan baru ke teman Anda.",
+  "Order part is already paid": "Bagian ini sudah dibayar.",
+  "Order is no longer waiting for payment": "Pesanan ini sudah tidak menunggu pembayaran.",
+  "Order part changed meanwhile, please try again": "Bagian ini baru saja berubah. Coba lagi.",
+  "Order total is too small to split into that many parts": "Total pesanan terlalu kecil untuk dibagi sebanyak itu.",
   "bannerIds must include all existing banners": "Urutan banner berubah di tempat lain. Muat ulang lalu coba lagi.",
   "Failed to upload banner image": "Gagal mengunggah gambar. Coba lagi.",
 };
@@ -87,6 +94,22 @@ async function request<T>(
 }
 
 type Ok<T> = { status: "success"; data: T };
+type PartView = { part: OrderPart; order: Order };
+type RefundedPart = { partId: string; no: number; name: string | null; amount: number; paymentType: string | null };
+/** What cancelling a split order did with the money already paid. */
+export type CancelRefunds = {
+  paidPartCount: number;
+  refundAmount: number;
+  refunds: {
+    automatic: RefundedPart[];
+    manual: (RefundedPart & { paymentMethod: PaymentMethod; reason: ManualRefundReason; detail: string | null })[];
+  };
+};
+
+type SplitPart = { name?: string; paymentMethod?: PaymentMethod };
+export type OrderSplit =
+  | { mode: "even"; parts: SplitPart[] }
+  | { mode: "item"; parts: (SplitPart & { items: { menuItemId: string; quantity: number }[] })[] };
 type Paged<T> = Ok<T[]> & { pagination: Pagination };
 type Msg = { status: "success"; message: string };
 
@@ -140,12 +163,29 @@ export const api = {
     tableNumber: number;
     paymentMethod: PaymentMethod;
     orderItems: { menuItemId: string; quantity: number; note?: string }[];
+    split?: OrderSplit;
   }) =>
     request<
       Msg & { data: { orderId: string; invoiceNumber: string; redirectUrl: string | null; snapToken: string | null } }
     >("/api/orders", { method: "POST", json: body }),
   updateOrderStatus: (id: string, status: Exclude<OrderStatus, "pending">) =>
-    request<Msg>(`/api/orders/${id}`, { method: "PATCH", json: { status } }),
+    request<Msg & { data?: CancelRefunds }>(`/api/orders/${id}`, {
+      method: "PATCH",
+      json: { status },
+    }),
+  /** Asks Midtrans directly, for when the payment webhook is late. Returns the latest order. */
+  checkOrderPayment: (id: string) =>
+    request<Ok<Order>>(`/api/orders/${id}/check-payment`, { method: "POST" }).then((r) => r.data),
+
+  // Split orders: every part has its own page, payment and invoice
+  orderPart: (id: string) => request<Ok<PartView>>(`/api/order-parts/${id}`).then((r) => r.data),
+  setPartMethod: (id: string, paymentMethod: PaymentMethod) =>
+    request<Ok<PartView>>(`/api/order-parts/${id}`, { method: "PATCH", json: { paymentMethod } }).then((r) => r.data),
+  payPart: (id: string) => request<Ok<PartView>>(`/api/order-parts/${id}/pay`, { method: "POST" }).then((r) => r.data),
+  checkPartPayment: (id: string) =>
+    request<Ok<PartView>>(`/api/order-parts/${id}/check-payment`, { method: "POST" }).then((r) => r.data),
+  markPartPaid: (id: string) =>
+    request<Ok<PartView>>(`/api/order-parts/${id}/mark-paid`, { method: "POST" }).then((r) => r.data),
 
   dashboard: (q: { range?: string; startDate?: string; endDate?: string }) =>
     request<Ok<DashboardData>>("/api/dashboard", { query: q }).then((r) => r.data),

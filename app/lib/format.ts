@@ -40,5 +40,22 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cashless: "Non-tunai",
 };
 
+const PAYMENT_TYPE_LABEL: Record<string, string> = {
+  credit_card: "Kartu kredit",
+  gopay: "GoPay",
+  shopeepay: "ShopeePay",
+  dana: "DANA",
+  ovo: "OVO",
+  qris: "QRIS",
+  kredivo: "Kredivo",
+  akulaku: "Akulaku",
+  bank_transfer: "Transfer bank",
+  echannel: "Transfer bank",
+  permata_va: "Transfer bank",
+  cstore: "Gerai ritel",
+};
+/** "GoPay", "QRIS", "Transfer bank"… for a Midtrans payment_type; "Non-tunai" when unknown. */
+export const paymentTypeLabel = (type: string | null | undefined) => (type && PAYMENT_TYPE_LABEL[type]) || "Non-tunai";
+
 export const ROLE_LABEL = { staff: "Staf", admin: "Admin", super_admin: "Super admin" } as const;
 export const TYPE_LABEL = { food: "Makanan", drink: "Minuman" } as const;

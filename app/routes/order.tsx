@@ -8,9 +8,10 @@ import { readTable, useCart, type CartLine } from '~/lib/cart';
 import { CAFE_NAME } from '~/lib/config';
 import { rupiah, TYPE_LABEL } from '~/lib/format';
 import { LABEL_STYLE, LABELS, useMenuDemo, type Label } from '~/lib/menu-demo';
-import { equalShares, personShares } from '~/lib/split';
+import { openSnap } from '~/lib/snap';
+import { MAX_PARTS, splitEvenly } from '~/lib/split';
 import { recentOrders } from '~/lib/storage';
-import type { Banner, MenuItem, PaymentMethod } from '~/lib/types';
+import type { Banner, MenuItem, PaymentMethod, SplitMode } from '~/lib/types';
 import { cn } from '~/lib/utils';
 import { Brand } from '~/components/brand';
 import { Icon } from '~/components/icon';
@@ -815,6 +816,9 @@ function MenuDetailDialog({
   );
 }
 
+type DraftPart = { name: string; qty: Record<string, number> };
+const draftPart = (): DraftPart => ({ name: '', qty: {} });
+
 function CheckoutSheet({
   open,
   onOpenChange,
@@ -846,21 +850,89 @@ function CheckoutSheet({
   const [noteOpen, setNoteOpen] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
+  // Split bill: step 2 of the sheet, only when the switch is on
+  const [split, setSplit] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [mode, setMode] = useState<SplitMode>('item');
+  const [parts, setParts] = useState<DraftPart[]>(() => [draftPart(), draftPart()]);
+  const [active, setActive] = useState(0);
+  const [people, setPeople] = useState(2);
+  const [evenNames, setEvenNames] = useState<string[]>([]);
+
   // Close the sheet when the last item is removed
   useEffect(() => {
     if (open && lines.length === 0 && !busy) onOpenChange(false);
   }, [open, lines.length, busy, onOpenChange]);
+  // Every visit starts at step 1, with the split as it was left
+  useEffect(() => {
+    if (!open) setStep(1);
+  }, [open]);
+
+  const units = lines.reduce((n, l) => n + l.quantity, 0);
+  const maxParts = Math.min(MAX_PARTS, units);
+
+  // Each part's quantities, capped at what's in the cart (the cart can change after splitting)
+  const assigned = useMemo(() => {
+    const left = new Map(lines.map((l) => [l.menuItemId, l.quantity]));
+    return parts.map((p) =>
+      Object.fromEntries(
+        lines.map((l) => {
+          const q = Math.min(p.qty[l.menuItemId] ?? 0, left.get(l.menuItemId) ?? 0);
+          left.set(l.menuItemId, (left.get(l.menuItemId) ?? 0) - q);
+          return [l.menuItemId, q];
+        }),
+      ),
+    );
+  }, [parts, lines]);
+  const leftOf = (id: string) =>
+    (lines.find((l) => l.menuItemId === id)?.quantity ?? 0) -
+    assigned.reduce((n, a) => n + (a[id] ?? 0), 0);
+  const partAmount = (i: number) =>
+    lines.reduce((n, l) => n + (assigned[i]?.[l.menuItemId] ?? 0) * (byId.get(l.menuItemId)?.price ?? 0), 0);
+  const partLabel = (i: number) =>
+    (i === 0 ? parts[0].name.trim() || name.trim() : parts[i].name.trim()) || `Bagian ${i + 1}`;
+  const evenAmounts = splitEvenly(total, people);
+  const unassigned = lines.filter((l) => leftOf(l.menuItemId) > 0);
+  const emptyPart = parts.findIndex((_, i) => !Object.values(assigned[i] ?? {}).some((q) => q > 0));
+
+  const myAmount = mode === 'item' ? partAmount(0) : evenAmounts[0];
+  const blocked =
+    !split || step === 1
+      ? ''
+      : mode === 'item' && unassigned.length
+        ? 'Bagikan semua item dulu'
+        : mode === 'item' && emptyPart >= 0
+          ? `${partLabel(emptyPart)} belum punya item`
+          : '';
+
+  const setPartQty = (id: string, q: number) =>
+    setParts((ps) => ps.map((p, i) => (i === active ? { ...p, qty: { ...p.qty, [id]: q } } : p)));
+  const addPart = () => {
+    setParts((ps) => [...ps, draftPart()]);
+    setActive(parts.length);
+  };
+  const removePart = () => {
+    setParts((ps) => ps.filter((_, i) => i !== active));
+    setActive((a) => a - 1);
+  };
+
+  const checkName = () => {
+    if (name.trim()) return true;
+    setNameError('Isi nama Anda supaya staf bisa memanggil saat pesanan siap.');
+    nameRef.current?.focus();
+    return false;
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!table || busy) return;
-    if (!name.trim()) {
-      setNameError(
-        'Isi nama Anda supaya staf bisa memanggil saat pesanan siap.',
-      );
-      nameRef.current?.focus();
+    if (split && step === 1) {
+      if (!checkName()) return;
+      if (units < 2) setMode('even'); // one item can't be split per item
+      setStep(2);
       return;
     }
+    if (!checkName() || blocked) return;
     setBusy('placing');
     try {
       const { data } = await api.addOrder({
@@ -873,195 +945,384 @@ function CheckoutSheet({
           quantity: l.quantity,
           note: l.note.trim() || undefined,
         })),
+        split: !split
+          ? undefined
+          : mode === 'even'
+            ? {
+                mode,
+                parts: evenAmounts.map((_, i) => ({
+                  name: (i === 0 ? evenNames[0]?.trim() || name.trim() : evenNames[i]?.trim()) || undefined,
+                  paymentMethod: i === 0 ? payment : undefined,
+                })),
+              }
+            : {
+                mode,
+                parts: parts.map((p, i) => ({
+                  name: (i === 0 ? p.name.trim() || name.trim() : p.name.trim()) || undefined,
+                  paymentMethod: i === 0 ? payment : undefined,
+                  items: lines
+                    .map((l) => ({ menuItemId: l.menuItemId, quantity: assigned[i][l.menuItemId] ?? 0 }))
+                    .filter((it) => it.quantity > 0),
+                })),
+              },
       });
       recentOrders.add(data.orderId);
       onPlaced();
-      if (payment === 'cashless' && data.redirectUrl) {
+      const to = `/pesanan?order_id=${data.orderId}`;
+      if (payment === 'cashless' && (data.snapToken || data.redirectUrl)) {
         setBusy('redirecting');
-        window.location.assign(data.redirectUrl);
-        return;
+        // The open sheet traps focus and clicks, which would leave the Midtrans popup unusable
+        onOpenChange(false);
+        const result = await openSnap(data.snapToken, data.redirectUrl, to);
+        if (result === 'redirected') return;
+        // The webhook may still be on its way; ask Midtrans so the next page is already up to date
+        await api.checkOrderPayment(data.orderId).catch(() => null);
       }
-      navigate(`/pesanan?order_id=${data.orderId}`);
+      navigate(to);
     } catch (err) {
       toast.error('Pesanan belum terkirim', { description: errorMessage(err) });
       setBusy('');
     }
   };
 
+  // inCard: the numbered step already shows the title, so the legend is only for screen readers
+  const payChoice = (inCard: boolean) => (
+    <fieldset className="grid min-w-0 gap-2">
+      <legend className={inCard ? 'sr-only' : 'mb-2 type-label-s'}>{split ? 'Pembayaran bagian Anda' : 'Pembayaran'}</legend>
+      <RadioGroup
+        value={payment}
+        onValueChange={(v) => setPayment(v as PaymentMethod)}
+        className="grid-cols-2 gap-2"
+        aria-describedby="payment-hint"
+      >
+        {(
+          [
+            ['cashless', 'Non-tunai', 'wallet'],
+            ['cash', 'Tunai', 'cash'],
+          ] as const
+        ).map(([value, title, icon]) => (
+          <label
+            key={value}
+            className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-line-strong px-3 transition-colors hover:bg-fill-hover has-data-checked:border-transparent has-data-checked:bg-secondary has-data-checked:shadow-[inset_0_0_0_2px_var(--ds-selected)]"
+          >
+            <Icon name={icon} className="size-5 text-ink-soft" />
+            <span className="flex-1 type-label-s whitespace-nowrap">{title}</span>
+            <RadioGroupItem value={value} aria-label={title} />
+          </label>
+        ))}
+      </RadioGroup>
+      <p id="payment-hint" className="type-body-xs text-ink-soft">
+        {payment === 'cash' ? 'Bayar di kasir, lalu pesanan mulai dibuat.' : 'QRIS, e-wallet, kartu, atau transfer bank.'}
+      </p>
+    </fieldset>
+  );
+
+  const submitLabel = busy
+    ? busy === 'redirecting'
+      ? 'Membuka pembayaran…'
+      : 'Mengirim pesanan…'
+    : split && step === 1
+      ? 'Lanjut: bagi tagihan'
+      : blocked ||
+        (split
+          ? payment === 'cash'
+            ? `Pesan, bayar ${rupiah(myAmount)} di kasir`
+            : `Pesan dan bayar ${rupiah(myAmount)}`
+          : payment === 'cash'
+            ? 'Pesan, bayar di kasir'
+            : 'Pesan dan bayar');
+
   return (
     <Sheet open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <SheetContent
-        side="bottom"
-        className="mx-auto max-w-[30rem] gap-0 overflow-y-auto bg-background md:max-w-xl"
-      >
-        <SheetHeader className="pb-3">
-          <SheetTitle>Pesanan Anda</SheetTitle>
-          <SheetDescription>
-            {table ? `Diantar ke meja ${table}` : 'Nomor meja belum terbaca'}
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent side="bottom" className="mx-auto max-w-[30rem] gap-0 overflow-y-auto bg-background md:max-w-xl">
+        {step === 1 ? (
+          <SheetHeader className="pb-3">
+            <SheetTitle>Pesanan Anda</SheetTitle>
+            <SheetDescription>{table ? `Diantar ke meja ${table}` : 'Nomor meja belum terbaca'}</SheetDescription>
+          </SheetHeader>
+        ) : (
+          <SheetHeader className="flex-row items-center gap-1 pb-3 pl-2">
+            <Button type="button" variant="ghost" size="icon-sm" onClick={() => setStep(1)} aria-label="Kembali ke pesanan">
+              <Icon name="back" className="size-5" />
+            </Button>
+            <div className="grid">
+              <SheetTitle>Bagi tagihan</SheetTitle>
+              <SheetDescription>Langkah 2 dari 2 · total {rupiah(total)}</SheetDescription>
+            </div>
+          </SheetHeader>
+        )}
 
-        <form id="checkout" onSubmit={submit} className="grid gap-3 px-4 pb-3">
-          <Step n={1} title="Pesanan">
-          <ul className="grid">
-            {lines.map((l) => {
-              const m = byId.get(l.menuItemId);
-              if (!m) return null;
-              return (
-                <li
-                  key={l.menuItemId}
-                  className="grid gap-2 border-b py-3 last:border-b-0"
-                >
-                  <div className="flex items-start gap-3">
-                    <MenuThumb
-                      src={m.imageUrl}
-                      type={m.type}
-                      alt=""
-                      className="size-12 rounded-md"
-                    />
-                    <div className="grid min-w-0 flex-1">
-                      <span className="type-label-s">{m.name}</span>
-                      <span className="type-body-s text-ink-soft tabular-nums">
-                        {rupiah(m.price * l.quantity)}
-                      </span>
-                    </div>
-                    <Stepper
-                      value={l.quantity}
-                      onChange={(n) => onQty(m.id, n)}
-                      name={m.name}
-                    />
-                  </div>
-                  {l.note || noteOpen === m.id ? (
-                    <label className="relative block">
-                      <span className="sr-only">Catatan untuk {m.name}</span>
-                      <Icon
-                        name="notes"
-                        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint"
-                      />
-                      <Input
-                        autoFocus={noteOpen === m.id}
-                        value={l.note}
-                        onChange={(e) => onNote(m.id, e.target.value)}
-                        onBlur={() => setNoteOpen(null)}
-                        placeholder="Catatan, mis. tidak pedas"
-                        maxLength={200}
-                        className="h-10 pl-10 text-sm"
-                      />
-                    </label>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-fit px-3 text-ink-soft"
-                      onClick={() => setNoteOpen(m.id)}
-                      aria-label={`Tambah catatan untuk ${m.name}`}
-                    >
-                      <Icon name="plus" />
-                      Tambah catatan
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          </Step>
+        <form id="checkout" onSubmit={submit} className={cn('grid px-4 pb-3', step === 1 ? 'gap-3' : 'gap-5')}>
+          {step === 1 ? (
+            <>
+              <Step n={1} title="Pesanan">
+              <ul className="grid">
+                {lines.map((l) => {
+                  const m = byId.get(l.menuItemId);
+                  if (!m) return null;
+                  return (
+                    <li key={l.menuItemId} className="grid gap-2 border-b py-3 last:border-b-0">
+                      <div className="flex items-start gap-3">
+                        <MenuThumb src={m.imageUrl} type={m.type} alt="" className="size-12 rounded-md" />
+                        <div className="grid min-w-0 flex-1">
+                          <span className="type-label-s">{m.name}</span>
+                          <span className="type-body-s text-ink-soft tabular-nums">{rupiah(m.price * l.quantity)}</span>
+                        </div>
+                        <Stepper value={l.quantity} onChange={(n) => onQty(m.id, n)} name={m.name} />
+                      </div>
+                      {l.note || noteOpen === m.id ? (
+                        <label className="relative block">
+                          <span className="sr-only">Catatan untuk {m.name}</span>
+                          <Icon
+                            name="notes"
+                            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint"
+                          />
+                          <Input
+                            autoFocus={noteOpen === m.id}
+                            value={l.note}
+                            onChange={(e) => onNote(m.id, e.target.value)}
+                            onBlur={() => setNoteOpen(null)}
+                            placeholder="Catatan, mis. tidak pedas"
+                            maxLength={200}
+                            className="h-10 pl-10 text-sm"
+                          />
+                        </label>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="w-fit px-3 text-ink-soft"
+                          onClick={() => setNoteOpen(m.id)}
+                          aria-label={`Tambah catatan untuk ${m.name}`}
+                        >
+                          <Icon name="plus" />
+                          Tambah catatan
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              </Step>
 
-          <Step n={2} title="Data pemesan">
-          <Field data-invalid={!!nameError}>
-            <FieldLabel htmlFor="customer-name">Nama</FieldLabel>
-            <Input
-              ref={nameRef}
-              id="customer-name"
-              autoComplete="name"
-              value={name}
-              maxLength={255}
-              aria-invalid={!!nameError}
-              onChange={(e) => (setName(e.target.value), setNameError(''))}
-              placeholder="Nama untuk dipanggil"
-            />
-            {nameError && <FieldError>{nameError}</FieldError>}
-          </Field>
+              <Step n={2} title="Data pemesan">
+              <Field data-invalid={!!nameError}>
+                <FieldLabel htmlFor="customer-name">Nama</FieldLabel>
+                <Input
+                  ref={nameRef}
+                  id="customer-name"
+                  autoComplete="name"
+                  value={name}
+                  maxLength={255}
+                  aria-invalid={!!nameError}
+                  onChange={(e) => (setName(e.target.value), setNameError(''))}
+                  placeholder="Nama untuk dipanggil"
+                />
+                {nameError && <FieldError>{nameError}</FieldError>}
+              </Field>
 
-          <Field>
-            <FieldLabel htmlFor="customer-phone">
-              Nomor HP{' '}
-              <span className="font-normal text-ink-faint">(opsional)</span>
-            </FieldLabel>
-            <Input
-              id="customer-phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              maxLength={20}
-              onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
-              placeholder="08xxxxxxxxxx"
-            />
-          </Field>
-          </Step>
+              <Field>
+                <FieldLabel htmlFor="customer-phone">
+                  Nomor HP <span className="font-normal text-ink-faint">(opsional)</span>
+                </FieldLabel>
+                <Input
+                  id="customer-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={phone}
+                  maxLength={20}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                  placeholder="08xxxxxxxxxx"
+                />
+              </Field>
+              </Step>
 
-          <Step n={3} title="Pembayaran" fieldset>
-            <RadioGroup
-              value={payment}
-              onValueChange={(v) => setPayment(v as PaymentMethod)}
-              className="grid-cols-2 gap-2"
-              aria-describedby="payment-hint"
-            >
-              {(
-                [
-                  ['cashless', 'Non-tunai', 'wallet'],
-                  ['cash', 'Tunai', 'cash'],
-                ] as const
-              ).map(([value, title, icon]) => (
-                <label
-                  key={value}
-                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-full border border-line-strong px-3 transition-colors hover:bg-fill-hover has-data-checked:border-transparent has-data-checked:bg-secondary has-data-checked:shadow-[inset_0_0_0_2px_var(--ds-selected)]"
-                >
-                  <Icon name={icon} className="size-5 text-ink-soft" />
-                  <span className="flex-1 type-label-s whitespace-nowrap">{title}</span>
-                  <RadioGroupItem value={value} aria-label={title} />
+              <Step n={3} title="Pembayaran">
+              {lines.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg bg-background p-3">
+                  <span className="grid flex-1">
+                    <span className="type-label-s">Pisah bill</span>
+                    <span className="type-body-xs text-ink-soft">
+                      Tiap orang bayar bagiannya sendiri. Pembagian dan cara bayar diatur di langkah berikutnya.
+                    </span>
+                  </span>
+                  <Switch checked={split} onCheckedChange={setSplit} />
                 </label>
-              ))}
-            </RadioGroup>
-            <p id="payment-hint" className="type-body-xs text-ink-soft">
-              {payment === 'cash'
-                ? 'Bayar di kasir, lalu pesanan mulai dibuat.'
-                : 'QRIS, e-wallet, kartu, atau transfer bank.'}
-            </p>
-          </Step>
+              )}
 
-          <SplitBill lines={lines} byId={byId} total={total} />
+              {!split && payChoice(true)}
+              </Step>
+            </>
+          ) : (
+            <>
+              <div role="radiogroup" aria-label="Cara membagi" className="grid grid-cols-2 gap-1 rounded-full bg-muted p-1">
+                {(
+                  [
+                    ['item', 'Per item'],
+                    ['even', 'Dibagi rata'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === value}
+                    disabled={value === 'item' && units < 2}
+                    onClick={() => setMode(value)}
+                    className="min-h-9 rounded-full type-label-s text-ink-soft transition-colors duration-[120ms] disabled:opacity-50 aria-checked:bg-surface aria-checked:text-ink aria-checked:shadow-ds-1"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {mode === 'item' ? (
+                <>
+                  <div role="tablist" aria-label="Bagian" className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none]">
+                    {parts.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        role="tab"
+                        aria-selected={i === active}
+                        onClick={() => setActive(i)}
+                        className="grid min-w-20 shrink-0 rounded-lg border border-line-strong px-3 py-2 text-left transition-colors hover:bg-fill-hover aria-selected:border-transparent aria-selected:bg-secondary aria-selected:shadow-[inset_0_0_0_2px_var(--ds-selected)]"
+                      >
+                        <span className="max-w-28 truncate type-label-s">{partLabel(i)}</span>
+                        <span className="type-body-xs text-ink-soft tabular-nums">{rupiah(partAmount(i))}</span>
+                      </button>
+                    ))}
+                    {parts.length < maxParts && (
+                      <Button type="button" variant="outline" className="h-auto min-h-12 shrink-0 rounded-lg" onClick={addPart} aria-label="Tambah bagian">
+                        <Icon name="plus" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <Field>
+                    <FieldLabel htmlFor="part-name">
+                      Nama bagian {active + 1} <span className="font-normal text-ink-faint">(opsional)</span>
+                    </FieldLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        id="part-name"
+                        value={parts[active].name}
+                        maxLength={30}
+                        onChange={(e) => setParts((ps) => ps.map((p, i) => (i === active ? { ...p, name: e.target.value } : p)))}
+                        placeholder={active === 0 ? name.trim() || 'Anda' : 'mis. Citra'}
+                      />
+                      {active > 0 && parts.length > 2 && (
+                        <Button type="button" variant="ghost" className="shrink-0 px-3 text-danger-ink hover:bg-danger-tint-hover" onClick={removePart}>
+                          Hapus
+                        </Button>
+                      )}
+                    </div>
+                  </Field>
+
+                  {unassigned.length > 0 && (
+                    <p role="status" className="flex items-start gap-2 rounded-lg bg-warning-tint px-3 py-2.5 type-body-s text-warning-ink">
+                      <Icon name="info" className="mt-0.5" />
+                      <span>
+                        <span className="type-label-s">Belum dibagi:</span>{' '}
+                        {unassigned.map((l) => `${leftOf(l.menuItemId)}× ${byId.get(l.menuItemId)?.name}`).join(', ')}
+                      </span>
+                    </p>
+                  )}
+
+                  <ul className="grid">
+                    {lines.map((l) => {
+                      const m = byId.get(l.menuItemId);
+                      if (!m) return null;
+                      const mine = assigned[active]?.[l.menuItemId] ?? 0;
+                      const left = leftOf(l.menuItemId);
+                      const holders = parts.map((_, i) => i).filter((i) => i !== active && (assigned[i]?.[l.menuItemId] ?? 0) > 0);
+                      return (
+                        <li key={l.menuItemId} className="flex items-center gap-3 border-b py-2.5 last:border-b-0">
+                          <MenuThumb src={m.imageUrl} type={m.type} alt="" className="size-10 rounded-md" />
+                          <span className="grid min-w-0 flex-1">
+                            <span className="type-label-s">{m.name}</span>
+                            <span className={cn('type-body-xs', left ? 'type-label-xs text-warning-ink' : 'text-ink-faint')}>
+                              {left
+                                ? `Sisa ${left}`
+                                : mine
+                                  ? 'Semua sudah dibagi'
+                                  : `Di bagian ${holders.map(partLabel).join(', ')}`}
+                            </span>
+                          </span>
+                          <Stepper value={mine} max={mine + left} removes={false} onChange={(n) => setPartQty(l.menuItemId, n)} name={m.name} />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="type-label-s">Jumlah orang</span>
+                    <Stepper value={people} min={2} max={MAX_PARTS} removes={false} onChange={setPeople} name="orang" />
+                  </div>
+                  <fieldset className="grid gap-2">
+                    <legend className="mb-2 type-label-s">
+                      Nama tiap bagian <span className="font-normal text-ink-faint">(opsional)</span>
+                    </legend>
+                    {evenAmounts.map((amount, i) => (
+                      <label key={i} className="flex items-center gap-2">
+                        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted type-label-xs text-ink-soft">{i + 1}</span>
+                        <span className="sr-only">Nama bagian {i + 1}</span>
+                        <Input
+                          value={evenNames[i] ?? ''}
+                          maxLength={30}
+                          onChange={(e) =>
+                            setEvenNames((ns) => {
+                              const next = [...ns];
+                              next[i] = e.target.value;
+                              return next;
+                            })
+                          }
+                          placeholder={i === 0 ? name.trim() || 'Anda' : `Bagian ${i + 1}`}
+                          className="h-10"
+                        />
+                        <span className="min-w-20 text-right type-label-s tabular-nums">{rupiah(amount)}</span>
+                      </label>
+                    ))}
+                    {evenAmounts[0] !== evenAmounts[1] && (
+                      <p className="type-body-xs text-ink-faint">
+                        Bagian 1 menanggung sisa pembulatan {rupiah(evenAmounts[0] - evenAmounts[1])}.
+                      </p>
+                    )}
+                  </fieldset>
+                </>
+              )}
+
+              {payChoice(false)}
+              <p className="type-body-xs text-ink-soft">
+                Bagian lain memilih cara bayarnya sendiri lewat tautan yang Anda bagikan setelah memesan.
+              </p>
+            </>
+          )}
         </form>
 
         <SheetFooter className="sticky bottom-0 gap-2 border-t bg-popover">
-          <div className="flex items-baseline justify-between">
-            <span className="type-body-s text-ink-soft">Total</span>
-            <span className="type-label-l tabular-nums">{rupiah(total)}</span>
-          </div>
-          {!table && (
-            <FieldDescription className="text-warning-ink">
-              Pindai kode QR di meja untuk mengirim pesanan.
-            </FieldDescription>
+          {split && step === 2 ? (
+            <div className="flex items-baseline justify-between">
+              <span className="type-body-s text-ink-soft">Bagian Anda · {mode === 'item' ? partLabel(0) : evenNames[0]?.trim() || name.trim()}</span>
+              <span className="type-label-l tabular-nums">{rupiah(myAmount)}</span>
+            </div>
+          ) : (
+            <div className="flex items-baseline justify-between">
+              <span className="type-body-s text-ink-soft">Total</span>
+              <span className="type-label-l tabular-nums">{rupiah(total)}</span>
+            </div>
           )}
-          <Button
-            type="submit"
-            form="checkout"
-            size="lg"
-            disabled={!table || !!busy || lines.length === 0}
-          >
-            {busy ? (
-              <>
-                <Spinner label={false} />
-                {busy === 'redirecting'
-                  ? 'Membuka pembayaran…'
-                  : 'Mengirim pesanan…'}
-              </>
-            ) : payment === 'cash' ? (
-              'Pesan, bayar di kasir'
-            ) : (
-              'Pesan dan bayar'
-            )}
+          {!table && (
+            <FieldDescription className="text-warning-ink">Pindai kode QR di meja untuk mengirim pesanan.</FieldDescription>
+          )}
+          <Button type="submit" form="checkout" size="lg" disabled={!table || !!busy || lines.length === 0 || !!blocked}>
+            {busy && <Spinner label={false} />}
+            {submitLabel}
+            {split && step === 1 && !busy && <Icon name="next" />}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -1104,150 +1365,6 @@ function Step({
     <section className={card}>
       <h3>{heading}</h3>
       {children}
-    </section>
-  );
-}
-
-const MAX_PEOPLE = 10;
-
-/**
- * Split-bill calculator, off by default. It only shows each person's share: the order is still
- * paid once, and the split isn't saved or sent to the cafe.
- */
-function SplitBill({
-  lines,
-  byId,
-  total,
-}: {
-  lines: CartLine[];
-  byId: Map<string, MenuItem>;
-  total: number;
-}) {
-  const [on, setOn] = useState(false);
-  const [mode, setMode] = useState<'equal' | 'person'>('equal');
-  const [people, setPeople] = useState(2);
-  // Portions of each dish per person (0-based); portions nobody took are shared by everyone
-  const [taken, setTaken] = useState<Record<string, (number | undefined)[]>>({});
-
-  const items = lines.flatMap((l) => {
-    const m = byId.get(l.menuItemId);
-    return m ? [{ id: m.id, name: m.name, price: m.price, quantity: l.quantity }] : [];
-  });
-  const everyone = [...Array(people).keys()];
-  const mine = (id: string, p: number) => taken[id]?.[p] ?? 0;
-  const left = (id: string, quantity: number) =>
-    Math.max(0, quantity - everyone.reduce((n, p) => n + mine(id, p), 0));
-  const split =
-    mode === 'equal'
-      ? { shares: equalShares(total, people), unassigned: 0 }
-      : personShares(items, people, taken);
-  const { shares, unassigned } = split;
-  const rounded = shares.reduce((n, s) => n + s, 0) !== total;
-
-  const setMine = (id: string, p: number, n: number) =>
-    setTaken((t) => {
-      const next = [...(t[id] ?? [])];
-      next[p] = n;
-      return { ...t, [id]: next };
-    });
-
-  return (
-    <section className="grid gap-4 rounded-2xl border border-line bg-surface p-4 shadow-ds-1">
-      <label htmlFor="split-toggle" className="flex cursor-pointer items-center gap-3">
-        <Icon name="split-bill" className="size-6 text-ink-soft" />
-        <span className="grid flex-1">
-          <span className="type-label-s">Split bill</span>
-          <span className="type-body-xs text-ink-soft">
-            Hitung bagian tiap orang. Pembayaran tetap satu kali.
-          </span>
-        </span>
-        <Switch id="split-toggle" checked={on} onCheckedChange={setOn} />
-      </label>
-
-      {on && (
-        <>
-          <Segmented
-            label="Cara membagi"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'equal', label: 'Bagi rata' },
-              { value: 'person', label: 'Per orang' },
-            ]}
-            className="[&>button]:flex-1"
-          />
-
-          <div className="flex items-center justify-between gap-3">
-            <span className="type-label-s">Jumlah orang</span>
-            <Stepper
-              value={people}
-              onChange={setPeople}
-              name="orang"
-              min={2}
-              max={MAX_PEOPLE}
-            />
-          </div>
-
-          {mode === 'person' ? (
-            <ul className="grid gap-3">
-              {everyone.map((p) => (
-                <li
-                  key={p}
-                  aria-labelledby={`split-person-${p}`}
-                  className="grid gap-2 rounded-xl bg-muted p-3"
-                >
-                  <div className="flex items-baseline justify-between gap-2" aria-live="polite">
-                    <span id={`split-person-${p}`} className="type-label-s">
-                      Orang {p + 1}
-                    </span>
-                    <span className="type-label-m tabular-nums">{rupiah(shares[p])}</span>
-                  </div>
-                  {items.map((it) => {
-                    const n = mine(it.id, p);
-                    const rest = left(it.id, it.quantity);
-                    return (
-                      <div key={it.id} className="flex items-center justify-between gap-2">
-                        <span className="grid min-w-0">
-                          <span className="truncate type-body-s">{it.name}</span>
-                          <span className="type-body-xs text-ink-soft tabular-nums">
-                            {rupiah(it.price)}
-                            {it.quantity > 1 && ` · sisa ${rest} dari ${it.quantity}`}
-                          </span>
-                        </span>
-                        <Stepper
-                          value={n}
-                          onChange={(v) => setMine(it.id, p, v)}
-                          name={`${it.name} untuk Orang ${p + 1}`}
-                          max={n + rest}
-                        />
-                      </div>
-                    );
-                  })}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div
-              className="flex items-baseline justify-between rounded-lg bg-muted p-3"
-              aria-live="polite"
-            >
-              <span className="type-body-s text-ink-soft">Per orang</span>
-              <span className="type-label-l tabular-nums">{rupiah(shares[0])}</span>
-            </div>
-          )}
-
-          {(unassigned > 0 || rounded) && (
-            <div className="grid gap-1 type-body-xs text-ink-soft">
-              {unassigned > 0 && (
-                <p>
-                  Belum dipilih {rupiah(unassigned)}, dibagi rata ke semua orang.
-                </p>
-              )}
-              {rounded && <p>Dibulatkan ke atas ke Rp100 terdekat.</p>}
-            </div>
-          )}
-        </>
-      )}
     </section>
   );
 }

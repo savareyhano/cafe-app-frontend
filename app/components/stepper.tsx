@@ -9,14 +9,17 @@ export function Stepper({
   name,
   min = 0,
   max = MAX_QTY,
+  removes = true,
 }: {
   value: number;
   onChange: (n: number) => void;
   name: string;
   min?: number;
   max?: number;
+  /** Cart steppers show a bin at 1, since going to 0 removes the line; others just count down */
+  removes?: boolean;
 }) {
-  const willRemove = min === 0 && value === 1; // at 0 (split bill) a plain, disabled minus
+  const willRemove = removes && min === 0 && value <= 1;
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-line-brand bg-surface p-0.5">
       <Button
